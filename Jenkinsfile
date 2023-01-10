@@ -6,7 +6,7 @@ pipeline{
         
     stage('Git Checkout'){
 		git credentialsId: 'github', 
-		    url: 'https://', ##git-hub url  
+		    url: 'https://github.com/Santoshk143/santu.git', ##git-hub url  
 			branch: ""
 	}
 	
