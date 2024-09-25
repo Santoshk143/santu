@@ -1,0 +1,294 @@
+trigger:
+- develop
+
+jobs:
+- job: 'SonarqubeJob'
+  timeoutInMinutes: 120
+  workspace:
+      clean: all
+  pool:
+    name: $(AgentPoolName)
+
+  steps:   
+  - checkout: none
+    clean: true
+  - script: |
+      git clone https://$(username):$(password)@$(ADOURL)/IMM/IMM/_git/IMM -b $(branch_name) --single-branch --depth=1 $(branch_name)
+      
+  - task: CmdLine@2
+    displayName: 'restore the solution'
+    inputs:
+      script: |
+        dotnet restore $(build.sourcesdirectory)/$(branch_name)/HCL.IMM/HCL.IMM.sln
+        dotnet restore $(build.sourcesdirectory)/$(branch_name)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.sln
+        dotnet restore $(build.sourcesdirectory)/$(branch_name)/HCL.IMM.LinuxInstaller/HCL.IMM.LinuxInstaller.sln
+
+  - task: CmdLine@2
+    displayName: 'Sonar scanner with msbuild'
+    inputs:
+      script: |
+        cd $(build.sourcesdirectory)\$(branch_name)
+        $(SonarPath) begin /k:"IMM" /d:sonar.host.url="$(sonar_url)" /v:$(project_version) /d:sonar.login=$(sonarqube_token) /d:sonar.branch.name=$(branch_name) /d:sonar.cs.vstest.reportsPaths="$(build.sourcesDirectory)/TestResults/**/*.trx" /d:sonar.cs.vscoveragexml.reportsPaths="$(Build.SourcesDirectory)/$(branch_name)/coverage.xml" /d:sonar.python.version=3 /d:sonar.verbose=true
+
+  - task: CmdLine@2
+    displayName: 'Build HCL.IMM.sln'
+    inputs:
+       script: 'dotnet build $(build.sourcesdirectory)/$(branch_name)/HCL.IMM/HCL.IMM.sln -c $(BuildConfiguration)'
+
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.KRS.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/$(branch_name)/HCL.IMM\HCL.IMM.KRS
+       dotnet publish HCL.IMM.KRS.csproj -p:PublishProfile=Properties/PublishProfiles/FolderProfile.pubxml --configuration $(BuildConfiguration) --runtime linux-x64 --output bin\$(BuildConfiguration)\net8.0\publish\ --framework net8.0
+
+  - task: CmdLine@2
+    displayName: 'Msbuild for creating HCL.IMM.KRS RPM Package'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/$(branch_name)/HCL.IMM/HCL.IMM.KRS
+       dotnet msbuild HCL.IMM.KRS.csproj /t:CreateRPM /p:TargetFramework=net8.0 /p:Configuration=$(BuildConfiguration)
+
+  - task: CopyFiles@2
+    displayName: 'Copy HCL.IMM.KRS RPM'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/$(branch_name)/HCL.IMM\HCL.IMM.KRS\bin\$(BuildConfiguration)\net8.0'
+      Contents: '*.rpm'
+      TargetFolder: '$(build.SourcesDirectory)/$(branch_name)\HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles\'
+
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.Api.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/$(branch_name)/HCL.IMM\HCL.IMM.Api
+       dotnet publish HCL.IMM.Api.csproj -p:PublishProfile=Properties/PublishProfiles/FolderProfile.pubxml --configuration $(BuildConfiguration) --runtime linux-x64 --output bin\$(BuildConfiguration)\net8.0\publish\ --framework net8.0
+
+  - task: CmdLine@2
+    displayName: 'Msbuild for creating HCL.IMM.Api RPM Package'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/$(branch_name)/HCL.IMM/HCL.IMM.Api
+       dotnet msbuild HCL.IMM.Api.csproj /t:CreateRPM /p:TargetFramework=net8.0 /p:Configuration=$(BuildConfiguration)
+
+  - task: CopyFiles@2
+    displayName: 'Copy HCL.IMM.Api RPM'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/$(branch_name)/HCL.IMM\HCL.IMM.Api\bin\$(BuildConfiguration)\net8.0'
+      Contents: '*.rpm'
+      TargetFolder: '$(build.SourcesDirectory)/$(branch_name)\HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles\'
+
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.Web.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/$(branch_name)/HCL.IMM\HCL.IMM.Web
+       dotnet publish HCL.IMM.Web.csproj -p:PublishProfile=Properties/PublishProfiles/FolderProfile.pubxml --configuration=Release --runtime linux-x64 --output bin\Release\net8.0\publish\ --framework net8.0
+
+  - task: ArchiveFiles@2
+    displayName: 'Zip wwwroot'
+    inputs:
+      rootFolderOrFile: '$(build.SourcesDirectory)/$(branch_name)/HCL.IMM\HCL.IMM.Web\bin\$(BuildConfiguration)\net8.0\publish\wwwroot'
+      includeRootFolder: true
+      archiveType: 'zip'
+      archiveFile: '$(build.SourcesDirectory)/$(branch_name)/HCL.IMM\HCL.IMM.Web\bin\$(BuildConfiguration)\net8.0\publish\wwwroot.zip'
+      replaceExistingArchive: true
+
+  - task: CmdLine@2
+    displayName: 'Msbuild for creating HCL.IMM.Web RPM Package'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/$(branch_name)/HCL.IMM/HCL.IMM.Web
+       dotnet msbuild HCL.IMM.Web.csproj /t:CreateRPM /p:TargetFramework=net8.0 /p:Configuration=$(BuildConfiguration)
+
+  - task: CopyFiles@2
+    displayName: 'Copy HCL.IMM.Web RPM'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/$(branch_name)/HCL.IMM\HCL.IMM.Web\bin\$(BuildConfiguration)\net8.0'
+      Contents: '*.rpm'
+      TargetFolder: '$(build.SourcesDirectory)/$(branch_name)\HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles\'
+
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.Listener.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/$(branch_name)/HCL.IMM/BackgroundServices/HCL.IMM.Listener
+       dotnet publish HCL.IMM.Listener.csproj -p:PublishProfile=$(build.SourcesDirectory)/$(branch_name)/HCL.IMM/BackgroundServices/HCL.IMM.Listener/Properties/PublishProfiles/FolderProfile.pubxml --configuration $(BuildConfiguration) --runtime linux-x64 --output bin\$(BuildConfiguration)\net8.0\publish\linux-x64\ --framework net8.0
+
+  - task: PowerShell@2
+    displayName: 'Copy HCL.IMM.Listener'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Copy-Item -Path $(build.SourcesDirectory)/$(branch_name)\HCL.IMM\BackgroundServices\HCL.IMM.Listener\bin\$(BuildConfiguration)\net8.0\publish\linux-x64\IMM.Listener -Destination $(build.SourcesDirectory)/$(branch_name)\HCL.IMM\BackgroundServices\HCL.IMM.Listener\bin\$(BuildConfiguration)\net8.0\publish -Force
+        Copy-Item -Path $(build.SourcesDirectory)/$(branch_name)\HCL.IMM\BackgroundServices\HCL.IMM.Listener\bin\$(BuildConfiguration)\net8.0\publish\linux-x64\IMM.Listener -Destination $(build.SourcesDirectory)/$(branch_name)\HCL.IMM\BackgroundServices\HCL.IMM.Listener\bin\$(BuildConfiguration)\net8.0 -Force
+
+  - task: CmdLine@2
+    displayName: 'Msbuild for creating HCL.IMM.Listener RPM Package'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/$(branch_name)/HCL.IMM/BackgroundServices/HCL.IMM.Listener
+       dotnet msbuild HCL.IMM.Listener.csproj /t:CreateRPM /p:TargetFramework=net8.0 /p:Configuration=$(BuildConfiguration)
+
+  - task: CopyFiles@2
+    displayName: 'Copy HCL.IMM.Listener RPM'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/$(branch_name)/HCL.IMM/BackgroundServices/HCL.IMM.Listener\bin\$(BuildConfiguration)\net8.0'
+      Contents: '*.rpm'
+      TargetFolder: '$(build.SourcesDirectory)/$(branch_name)\HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles\'
+
+  - task: CmdLine@2
+    displayName: 'Build HCL.IMM.Orchestrator.sln'
+    inputs:
+       script: 'dotnet build $(build.sourcesdirectory)/$(branch_name)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.sln -c $(BuildConfiguration)' 
+  
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.Orchestrator.Api.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/$(branch_name)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api
+       dotnet publish HCL.IMM.Orchestrator.Api.csproj -p:PublishProfile=$(build.SourcesDirectory)/$(branch_name)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api/Properties/PublishProfiles/FolderProfile1.pubxml --configuration $(BuildConfiguration) --runtime linux-x64 --output bin\$(BuildConfiguration)\net8.0\publish\ --framework net8.0
+
+  - task: ArchiveFiles@2
+    displayName: 'Zip AdaptersJson'
+    inputs:
+      rootFolderOrFile: '$(build.SourcesDirectory)/$(branch_name)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api\bin\$(BuildConfiguration)\net8.0\publish\AdaptersJson'
+      includeRootFolder: true
+      archiveType: 'zip'
+      archiveFile: '$(build.SourcesDirectory)/$(branch_name)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api\bin\$(BuildConfiguration)\net8.0\publish\AdaptersJson.zip'
+      replaceExistingArchive: true
+
+  - task: CmdLine@2
+    displayName: 'Msbuild for creating HCL.IMM.Orchestrator RPM Package'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/$(branch_name)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api
+       dotnet msbuild HCL.IMM.Orchestrator.Api.csproj /t:CreateRPM /p:TargetFramework=net8.0 /p:Configuration=$(BuildConfiguration)
+
+  - task: CopyFiles@2
+    displayName: 'Copy HCL.IMM.Orchestrator RPM'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/$(branch_name)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api\bin\$(BuildConfiguration)\net8.0'
+      Contents: '*.rpm'
+      TargetFolder: '$(build.SourcesDirectory)/$(branch_name)\HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles\'
+  
+  - task: PowerShell@2
+    displayName: 'Merge DB Scripts in Single IMMdbScript.sql'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $folderPath = "$(build.SourcesDirectory)/$(branch_name)\HCL.IMM.Database\DatabaseScript\FullScript"
+        if (-not (Test-Path $folderPath)) {
+            New-Item -ItemType Directory -Path $folderPath
+        }
+
+        $sourceFolder = "$(build.SourcesDirectory)/$(branch_name)\HCL.IMM.Database\DatabaseScript\MergedFiles"
+        $outputFile = "$(build.SourcesDirectory)/$(branch_name)\HCL.IMM.Database\DatabaseScript\FullScript\IMMdbScript.sql"
+        $sourceFiles=Get-ChildItem -Path $sourceFolder -Filter *.sql | Sort-Object { [regex]::Replace($_.Name, '\d+', { $args[0].Value.PadLeft(20) }) }
+        
+        foreach ($file in $sourceFiles) {
+            Get-Content $file.FullName | Add-Content $outputFile
+        }
+
+  - task: CopyFiles@2
+    displayName: 'Copy DB Script'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/$(branch_name)\HCL.IMM.Database\DatabaseScript\FullScript'
+      Contents: 'IMMdbScript.sql'
+      TargetFolder: '$(build.SourcesDirectory)/$(branch_name)\HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles'
+
+  - task: PowerShell@2
+    displayName: 'Update Build and Project Version in IMM Web'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $filePath='$(build.SourcesDirectory)/$(branch_name)/HCL.IMM/HCL.IMM.Web/BuildVersion.txt'
+        $file= Get-Content -Path $filePath
+
+        $buildnumber=$file.Split(':')[1].Split('|')[0].Split(' ')[1]
+        $versionNumber=$file.Split(':')[2]
+        
+        (Get-Content -Path $filePath).Replace($buildnumber,$(Build.BuildNumber)) | Set-Content $filePath
+        (Get-Content -Path $filePath).Replace($versionNumber,$project_version) | Set-Content $filePath
+
+  - task: PowerShell@2
+    displayName: 'Update Build and Project Version in IMM KRS'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $filePath='$(build.SourcesDirectory)/$(branch_name)/HCL.IMM/HCL.IMM.KRS/LinuxService/Version.txt'
+        $file= Get-Content -Path $filePath
+        
+        $buildnumber=$file.Split(':')[1].Split('|')[0].Split(' ')[1]
+        $versionNumber=$file.Split(':')[2]
+        
+        (Get-Content -Path $filePath).Replace($buildnumber,$(Build.BuildNumber)) | Set-Content $filePath
+        (Get-Content -Path $filePath).Replace($versionNumber,$project_version) | Set-Content $filePath
+  
+  - task: CopyFiles@2
+    displayName: 'Copy Version.txt to LinuxInstaller PackageFiles'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/$(branch_name)/HCL.IMM/HCL.IMM.KRS/LinuxService'
+      Contents: 'Version.txt'
+      TargetFolder: '$(build.SourcesDirectory)/$(branch_name)\HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles'
+
+  - task: CmdLine@2
+    displayName: 'Build HCL.IMM.LinuxInstaller.sln'
+    inputs:
+       script: 'dotnet build $(build.sourcesdirectory)/$(branch_name)/HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller.sln -c $(BuildConfiguration)' 
+
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.LinuxInstaller.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/$(branch_name)/HCL.IMM.LinuxInstaller/HCL.IMM.LinuxInstaller
+       dotnet publish HCL.IMM.LinuxInstaller.csproj -p:PublishProfile=Properties/PublishProfiles/FolderProfile.pubxml --configuration $(BuildConfiguration)
+
+  - task: VSTest@2
+    displayName: 'Run Unit Test Cases'
+    inputs:
+      testSelector: 'testAssemblies'
+      testAssemblyVer2: '**/bin/$(BuildConfiguration)/net8.0/HCL.IMM.UnitTest.dll'
+      searchFolder: '$(build.SourcesDirectory)/$(branch_name)'
+      vstestLocationMethod: 'location'
+      vstestLocation: '$(vstestPath)'
+      platform: '$(BuildPlatform)'
+      configuration: '$(BuildConfiguration)'
+      codeCoverageEnabled: true
+
+  - task: CmdLine@2
+    displayName: 'Collect Unit Test Coverage For HCL.IMM/HCL.IMM.UnitTest'
+    inputs:
+      script: |
+        cd $(Build.SourcesDirectory)/$(branch_name)/HCL.IMM/HCL.IMM.UnitTest
+        dotnet tool install --global dotnet-coverage 2>1 true
+        dotnet-coverage collect "dotnet test --configuration $(BuildConfiguration)" -f xml -o "coverage1.xml"
+      failOnStderr: true
+
+  - task: CmdLine@2
+    displayName: 'Collect Unit Test Coverage For HCL.IMM.Orchestrator/HCL.IMM.UnitTest'
+    inputs:
+      script: |
+        cd $(Build.SourcesDirectory)/$(branch_name)/HCL.IMM.Orchestrator/HCL.IMM.UnitTest
+        dotnet tool install --global dotnet-coverage 2>1 true
+        dotnet-coverage collect "dotnet test --configuration $(BuildConfiguration)" -f xml -o "coverage2.xml"
+      failOnStderr: true
+  
+  - task: PowerShell@2
+    displayName: 'Copy Code Coverage Files'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Copy-Item -Path $(Build.SourcesDirectory)\$(branch_name)\HCL.IMM.Orchestrator\HCL.IMM.UnitTest\coverage2.xml -Destination $(build.SourcesDirectory)/$(branch_name) -Force
+        Copy-Item -Path $(Build.SourcesDirectory)\$(branch_name)\HCL.IMM\HCL.IMM.UnitTest\coverage1.xml -Destination $(build.SourcesDirectory)/$(branch_name) -Force
+
+  - task: CmdLine@2
+    displayName: 'Merge Code Coverage Files'
+    inputs:
+      script: |
+        cd $(Build.SourcesDirectory)/$(branch_name)
+        dotnet coverage merge *.xml --recursive --output coverage.xml --output-format xml
+
+  - task: CmdLine@2
+    displayName: 'END Sonar scanner'
+    inputs:
+      script: '$(SonarPath) end /d:sonar.login=$(sonarqube_token)'
