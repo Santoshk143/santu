@@ -1,0 +1,366 @@
+trigger:
+- develop
+
+jobs:
+- job: 'IMMCIBuild'
+  timeoutInMinutes: 120
+  workspace:
+      clean: all
+  pool:
+    name: $(AgentPoolName)
+
+  steps:   
+  - checkout: self
+    clean: true
+
+  - task: PowerShell@2
+    displayName: 'Determine Artifact Name'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $pName="$(ProductName)"
+        $clientName=$pName.ToLower()
+
+        if ('$(InstallerFileName)' -ne '') {
+          $artifactName='$(InstallerFileName)'
+        } else {
+          switch -Wildcard ($clientName.ToLower()) {
+            "hcl" {
+              $artifactName='HCL.IMM.LinuxInstaller'
+            }
+            "solarwinds" {
+              $artifactName='ECM.IMM.LinuxInstaller'
+            }
+            Default {
+              Write-Host "Unknown ProductName provided. Using default ArtifactName."
+              $artifactName='HCL.IMM.LinuxInstaller'
+            }
+          }
+        }
+        Write-Output "Artifact Name: $artifactName"
+        Write-Host "##vso[task.setvariable variable=ArtifactName;]$artifactName"
+
+  - task: PowerShell@2
+    displayName: 'Update Product Name in JSON File'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $jsonFilePath="$(build.SourcesDirectory)/HCL.IMM.LinuxInstaller/HCL.IMM.LinuxInstaller/appsettings.json"
+        $productName="$(ProductName)"
+        $pName=$productName.ToUpper()
+
+        if (Test-Path -Path $jsonFilePath) {
+          $jsonContent=Get-Content -Path $jsonFilePath -Raw | ConvertFrom-Json
+          $jsonContent.ProductName=$pName
+          $jsonContent | ConvertTo-Json | Out-File -FilePath $jsonFilePath
+          Write-Host "Updated product name in appsettings.json to: $pName"
+        } else {
+          Write-Host "appsettings.json not found."
+        }
+
+  - task: PowerShell@2
+    displayName: 'Update Build and Project Version in IMM Web'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $filePath='$(build.SourcesDirectory)/HCL.IMM/HCL.IMM.Web/BuildVersion.txt'
+        $file= Get-Content -Path $filePath
+        $versionNumber=$file.Split('|')[1].Split(':')[1].Split(' ')[1]
+        (Get-Content -Path $filePath).Replace($versionNumber,'$(project_version)') | Set-Content $filePath
+
+        $buildnumber=$file.Split('|')[0]
+        $newBuild='BuildNumber : '+$(Build.BuildNumber)
+        (Get-Content -Path $filePath).Replace($buildnumber,$newBuild) | Set-Content $filePath
+
+  - task: PowerShell@2
+    displayName: 'Update Build and Project Version in IMM KRS'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $filePath='$(build.SourcesDirectory)/HCL.IMM/HCL.IMM.KRS/LinuxService/Version.txt'
+        $file= Get-Content -Path $filePath
+        $versionNumber=$file.Split('|')[1].Split(':')[1].Split(' ')[1]
+        (Get-Content -Path $filePath).Replace($versionNumber,'$(project_version)') | Set-Content $filePath
+
+        $buildnumber=$file.Split('|')[0]
+        $newBuild='BuildNumber : '+$(Build.BuildNumber)
+        (Get-Content -Path $filePath).Replace($buildnumber,$newBuild) | Set-Content $filePath
+
+  - task: CopyFiles@2
+    displayName: 'Copy Version.txt to LinuxInstaller PackageFiles'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/HCL.IMM/HCL.IMM.KRS/LinuxService'
+      Contents: 'Version.txt'
+      TargetFolder: '$(build.SourcesDirectory)/HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles'
+      OverWrite: true
+
+  - task: CmdLine@2
+    displayName: 'restore the solution'
+    inputs:
+      script: |
+        dotnet restore $(build.sourcesdirectory)/HCL.IMM/HCL.IMM.sln
+        dotnet restore $(build.sourcesdirectory)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.sln
+        dotnet restore $(build.sourcesdirectory)/HCL.IMM.LinuxInstaller/HCL.IMM.LinuxInstaller.sln
+
+  - task: PowerShell@2
+    displayName: 'Copy Client Images'
+    inputs:
+      targetType: 'inline'
+      script: |
+        if(('$(ProductName)' -ne '') -and ('$(ProductName)' -ne ''))
+        {
+          $clientImages="$(build.SourcesDirectory)\HCL.IMM\HCL.IMM.Web\wwwroot\clientimages"
+          $pType="$(ProductName)"
+          $client=$pType.ToLower()
+          $clientImagesPath="$clientImages"+"\"+"$client"
+          if (Test-Path -Path "$clientImagesPath")
+          {
+            Copy-Item -Path "$clientImagesPath/logo.svg" -Destination "$(build.SourcesDirectory)/HCL.IMM\HCL.IMM.Web\wwwroot\images" -Force
+            Copy-Item -Path "$clientImagesPath/favicon.ico" -Destination "$(build.SourcesDirectory)/HCL.IMM\HCL.IMM.Web\wwwroot" -Force
+            
+            $appsettingsFilePath="$(Build.SourcesDirectory)\HCL.IMM/HCL.IMM.Web/appsettings.json"
+            $json= Get-Content -Path $appsettingsFilePath -Raw | ConvertFrom-Json
+            $json.Footer.CopyrightText="$(CopyrightText)"
+            $json | ConvertTo-Json | Out-File $appsettingsFilePath
+          }
+          else
+          {
+            Write-Host "Images of Provided Client Are Not Available"
+          }
+        }
+        else
+        {
+          Write-Host "Provide Valid Product Name"
+        }
+
+  - task: CmdLine@2
+    displayName: 'Build HCL.IMM.sln'
+    inputs:
+       script: 'dotnet build $(build.sourcesdirectory)/HCL.IMM/HCL.IMM.sln -c $(BuildConfiguration)'
+
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.KRS.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/HCL.IMM\HCL.IMM.KRS
+       dotnet publish HCL.IMM.KRS.csproj -p:PublishProfile=Properties/PublishProfiles/FolderProfile.pubxml --configuration $(BuildConfiguration) --runtime linux-x64 --output bin\$(BuildConfiguration)\net8.0\publish\ --framework net8.0
+
+  - task: CmdLine@2
+    displayName: 'Msbuild for creating HCL.IMM.KRS RPM Package'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/HCL.IMM/HCL.IMM.KRS
+       dotnet msbuild HCL.IMM.KRS.csproj /t:CreateRPM /p:TargetFramework=net8.0 /p:Configuration=$(BuildConfiguration)
+
+  - task: CopyFiles@2
+    displayName: 'Copy HCL.IMM.KRS RPM'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/HCL.IMM\HCL.IMM.KRS\bin\$(BuildConfiguration)\net8.0'
+      Contents: '*.rpm'
+      TargetFolder: '$(build.SourcesDirectory)\HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles\'
+      OverWrite: true
+
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.Api.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/HCL.IMM\HCL.IMM.Api
+       dotnet publish HCL.IMM.Api.csproj -p:PublishProfile=Properties/PublishProfiles/FolderProfile.pubxml --configuration $(BuildConfiguration) --runtime linux-x64 --output bin\$(BuildConfiguration)\net8.0\publish\ --framework net8.0
+
+  - task: CmdLine@2
+    displayName: 'Msbuild for creating HCL.IMM.Api RPM Package'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/HCL.IMM/HCL.IMM.Api
+       dotnet msbuild HCL.IMM.Api.csproj /t:CreateRPM /p:TargetFramework=net8.0 /p:Configuration=$(BuildConfiguration)
+
+  - task: CopyFiles@2
+    displayName: 'Copy HCL.IMM.Api RPM'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/HCL.IMM\HCL.IMM.Api\bin\$(BuildConfiguration)\net8.0'
+      Contents: '*.rpm'
+      TargetFolder: '$(build.SourcesDirectory)\HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles\'
+      OverWrite: true
+
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.Web.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/HCL.IMM\HCL.IMM.Web
+       dotnet publish HCL.IMM.Web.csproj -p:PublishProfile=Properties/PublishProfiles/FolderProfile.pubxml --configuration=Release --runtime linux-x64 --output bin\Release\net8.0\publish\ --framework net8.0
+
+  - task: ArchiveFiles@2
+    displayName: 'Zip wwwroot'
+    inputs:
+      rootFolderOrFile: '$(build.SourcesDirectory)/HCL.IMM\HCL.IMM.Web\bin\$(BuildConfiguration)\net8.0\publish\wwwroot'
+      includeRootFolder: true
+      archiveType: 'zip'
+      archiveFile: '$(build.SourcesDirectory)/HCL.IMM\HCL.IMM.Web\bin\$(BuildConfiguration)\net8.0\publish\wwwroot.zip'
+      replaceExistingArchive: true
+
+  - task: CmdLine@2
+    displayName: 'Msbuild for creating HCL.IMM.Web RPM Package'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/HCL.IMM/HCL.IMM.Web
+       dotnet msbuild HCL.IMM.Web.csproj /t:CreateRPM /p:TargetFramework=net8.0 /p:Configuration=$(BuildConfiguration)
+
+  - task: CopyFiles@2
+    displayName: 'Copy HCL.IMM.Web RPM'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/HCL.IMM\HCL.IMM.Web\bin\$(BuildConfiguration)\net8.0'
+      Contents: '*.rpm'
+      TargetFolder: '$(build.SourcesDirectory)\HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles\'
+      OverWrite: true
+
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.Listener.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/HCL.IMM/BackgroundServices/HCL.IMM.Listener
+       dotnet publish HCL.IMM.Listener.csproj -p:PublishProfile=$(build.SourcesDirectory)/HCL.IMM/BackgroundServices/HCL.IMM.Listener/Properties/PublishProfiles/FolderProfile.pubxml --configuration $(BuildConfiguration) --runtime linux-x64 --output bin\$(BuildConfiguration)\net8.0\publish\linux-x64\ --framework net8.0
+
+  - task: PowerShell@2
+    displayName: 'Copy HCL.IMM.Listener'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Copy-Item -Path $(build.SourcesDirectory)/HCL.IMM\BackgroundServices\HCL.IMM.Listener\bin\$(BuildConfiguration)\net8.0\publish\linux-x64\IMM.Listener -Destination $(build.SourcesDirectory)/HCL.IMM\BackgroundServices\HCL.IMM.Listener\bin\$(BuildConfiguration)\net8.0\publish -Force
+        Copy-Item -Path $(build.SourcesDirectory)/HCL.IMM\BackgroundServices\HCL.IMM.Listener\bin\$(BuildConfiguration)\net8.0\publish\linux-x64\IMM.Listener -Destination $(build.SourcesDirectory)/HCL.IMM\BackgroundServices\HCL.IMM.Listener\bin\$(BuildConfiguration)\net8.0 -Force
+
+  - task: CmdLine@2
+    displayName: 'Msbuild for creating HCL.IMM.Listener RPM Package'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/HCL.IMM/BackgroundServices/HCL.IMM.Listener
+       dotnet msbuild HCL.IMM.Listener.csproj /t:CreateRPM /p:TargetFramework=net8.0 /p:Configuration=$(BuildConfiguration)
+
+  - task: CopyFiles@2
+    displayName: 'Copy HCL.IMM.Listener RPM'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/HCL.IMM/BackgroundServices/HCL.IMM.Listener\bin\$(BuildConfiguration)\net8.0'
+      Contents: '*.rpm'
+      TargetFolder: '$(build.SourcesDirectory)/HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles\'
+      OverWrite: true
+
+  - task: CmdLine@2
+    displayName: 'Build HCL.IMM.Orchestrator.sln'
+    inputs:
+       script: 'dotnet build $(build.sourcesdirectory)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.sln -c $(BuildConfiguration)' 
+  
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.Orchestrator.Api.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api
+       dotnet publish HCL.IMM.Orchestrator.Api.csproj -p:PublishProfile=$(build.SourcesDirectory)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api/Properties/PublishProfiles/FolderProfile1.pubxml --configuration $(BuildConfiguration) --runtime linux-x64 --output bin\$(BuildConfiguration)\net8.0\publish\ --framework net8.0
+
+  - task: ArchiveFiles@2
+    displayName: 'Zip AdaptersJson'
+    inputs:
+      rootFolderOrFile: '$(build.SourcesDirectory)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api\bin\$(BuildConfiguration)\net8.0\publish\AdaptersJson'
+      includeRootFolder: true
+      archiveType: 'zip'
+      archiveFile: '$(build.SourcesDirectory)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api\bin\$(BuildConfiguration)\net8.0\publish\AdaptersJson.zip'
+      replaceExistingArchive: true
+
+  - task: CmdLine@2
+    displayName: 'Msbuild for creating HCL.IMM.Orchestrator RPM Package'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api
+       dotnet msbuild HCL.IMM.Orchestrator.Api.csproj /t:CreateRPM /p:TargetFramework=net8.0 /p:Configuration=$(BuildConfiguration)
+
+  - task: CopyFiles@2
+    displayName: 'Copy HCL.IMM.Orchestrator RPM'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/HCL.IMM.Orchestrator/HCL.IMM.Orchestrator.Api\bin\$(BuildConfiguration)\net8.0'
+      Contents: '*.rpm'
+      TargetFolder: '$(build.SourcesDirectory)/HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles\'
+      OverWrite: true
+  
+  - task: PowerShell@2
+    displayName: 'Merge DB Scripts in Single IMMdbScript.sql'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $folderPath = "$(build.SourcesDirectory)/HCL.IMM.Database\DatabaseScript\FullScript"
+        if (-not (Test-Path $folderPath)) {
+            New-Item -ItemType Directory -Path $folderPath
+        }
+
+        $sourceFolder = "$(build.SourcesDirectory)/HCL.IMM.Database\DatabaseScript\MergedFiles"
+        $outputFile = "$(build.SourcesDirectory)/HCL.IMM.Database\DatabaseScript\FullScript\IMMdbScript.sql"
+        $sourceFiles=Get-ChildItem -Path $sourceFolder -Filter *.sql | Sort-Object { [regex]::Replace($_.Name, '\d+', { $args[0].Value.PadLeft(20) }) }
+        
+        foreach ($file in $sourceFiles) {
+            Get-Content $file.FullName | Add-Content $outputFile
+        }
+
+  - task: CopyFiles@2
+    displayName: 'Copy DB Script'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/HCL.IMM.Database\DatabaseScript\FullScript'
+      Contents: 'IMMdbScript.sql'
+      TargetFolder: '$(build.SourcesDirectory)/HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller\PackageFiles'
+      OverWrite: true
+
+  - task: CmdLine@2
+    displayName: 'Build HCL.IMM.LinuxInstaller.sln'
+    inputs:
+       script: 'dotnet build $(build.sourcesdirectory)/HCL.IMM.LinuxInstaller\HCL.IMM.LinuxInstaller.sln -c $(BuildConfiguration)' 
+
+  - task: CmdLine@2
+    displayName: 'Publish HCL.IMM.LinuxInstaller.csproj'
+    inputs:
+      script: |
+       cd $(build.SourcesDirectory)/HCL.IMM.LinuxInstaller/HCL.IMM.LinuxInstaller
+       dotnet publish HCL.IMM.LinuxInstaller.csproj -p:PublishProfile=Properties/PublishProfiles/FolderProfile.pubxml --configuration $(BuildConfiguration)
+
+  - task: CopyFiles@2
+    displayName: 'Copy LinuxInstaller to Artifacts Directory'
+    inputs:
+      SourceFolder: '$(build.SourcesDirectory)/HCL.IMM.LinuxInstaller/HCL.IMM.LinuxInstaller\bin\$(BuildConfiguration)\net8.0\publish\linux-x64'
+      Contents: 'IMM.LinuxInstaller'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      OverWrite: true
+
+
+  - task: PowerShell@2
+    displayName: 'Rename Linux Installer'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $artifactinstallername='$(ArtifactName)'
+        $installerFileName="$(Build.ArtifactStagingDirectory)/IMM.LinuxInstaller"
+        $newInstallerFileName="$(Build.ArtifactStagingDirectory)/$artifactinstallername"
+
+        if (Test-Path $installerFileName) {
+          Rename-Item -Path $installerFileName -NewName $newInstallerFileName
+          Write-Host "Renamed LinuxInstaller file to $(ArtifactName).LinuxInstaller"
+        } else {
+          Write-Host "Linux Installer Not Found."
+        }
+  
+  - task: PowerShell@2
+    displayName: 'Copy and Rename Uninstall.sh'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Copy-Item $(build.SourcesDirectory)/HCL.IMM.LinuxInstaller/HCL.IMM.LinuxInstaller/PackageFiles/UninstallIMM.sh -Destination $(Build.ArtifactStagingDirectory) -Force
+  
+  - task: PowerShell@2
+    displayName: 'convert DOS to UNIX encoding'
+    inputs:
+      targetType: 'inline'
+      script: | 
+        cd $(Build.ArtifactStagingDirectory)
+        $UFile = "UninstallIMM.sh"
+        ((Get-Content $UFile) -join "`n") + "`n" | Set-Content -NoNewline $UFile
+      
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish LinuxInstaller'
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: '$(ArtifactName)'
+      publishLocation: 'Container'
