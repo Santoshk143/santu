@@ -1,0 +1,116 @@
+trigger:
+- none
+
+name: 6.4.$(Year:yy)$(DayOfYear).$(BuildId)
+
+jobs:
+- job: 'PythonUnitTestCoverage'
+  timeoutInMinutes: 180
+  workspace:
+    clean: all
+  pool:
+    name: $(AgentPoolName)
+
+  steps:
+  - checkout: none
+    clean: true 
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.10.0'
+      addToPath: true
+      architecture: 'x64'
+      
+  - script: |
+      git clone https://$(username):$(password)@$(ADOURL)/IAutomate/IAutomateBaseCode_NEW/_git/IAutomateBaseCode_GIT --branch $(tag_name) --depth=1 Iautomategit
+  
+  - script: |
+      git clone https://$(username):$(password)@$(ADOURL)/DefaultCollection/Devops_Internal_Pipeline/_git/pythonpackages --branch $(branch_name) --depth=1 pythonpackages
+     
+  - task: CmdLine@2
+    displayName: 'Checking python version'
+    inputs:
+      script: |
+        python --version
+
+  - task: CmdLine@2
+    displayName: 'Creating virtual env'
+    inputs:
+      script: |
+        cd $(Build.SourcesDirectory)/Iautomategit
+        python -m venv env
+
+  - task: PowerShell@2
+    enabled: false
+    displayName: 'Copy python prerequisites'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Copy-Item -Path 'E:\Software\python_prereq' -Destination $(Build.SourcesDirectory)\env\Lib\site-packages -Recurse -Force -Verbose
+
+  - task: PowerShell@2
+    displayName: 'Copy python prerequisites'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Copy-Item -Path $(Build.SourcesDirectory)/pythonpackages/* -Destination $(Build.SourcesDirectory)\Iautomategit\env\Lib\site-packages -Recurse -Force -Verbose
+  
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'Install Nuget Package from Azure Feeds'
+    inputs:
+      script: '$(NugetPath) install $(NugetPackageName) -version $(NugetPackageVer)'
+  
+  - task: PowerShell@2
+    enabled: true
+    displayName: 'Unzip the Nuget Package to Correct Location'
+    inputs:
+      targetType: inline
+      script: |
+        $destination="$(Build.SourcesDirectory)\Iautomategit\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp/$(ZipFileName)"
+        $extractionFolderPath="$(Build.SourcesDirectory)\Iautomategit\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp"
+        New-Item -ItemType Directory -Name '$(ZipFileName)' -Path "$(Build.SourcesDirectory)\Iautomategit\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp"
+        $fileToUnzip="$(Build.SourcesDirectory)/$(NugetPackageName).$(NugetPackageVer)/$(ZipFileName).zip"
+        Expand-Archive $fileToUnzip -DestinationPath $destination
+
+  
+  - task: PowerShell@2
+    displayName: 'Delete files from cloned pythonpackages'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Remove-Item -Path "$(Build.SourcesDirectory)\pythonpackages" -Recurse -Force
+    continueOnError: true
+
+  - task: PowerShell@2
+    enabled: false
+    displayName: 'Copy Sentence-transformers_all-MiniLM-L6-v2 Contents'
+    inputs:
+      targetType: 'inline'
+      script: |
+        Copy-Item -Path 'E:\Software\models--sentence-transformers--all-MiniLM-L6-v2\' -Destination $(Build.SourcesDirectory)\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp -Recurse -Force -Verbose
+
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'Running Python unittest cases '
+    inputs:
+      script: |
+        cd $(Build.SourcesDirectory)/Iautomategit
+        env\Scripts\activate.bat && pip install -r $(Build.SourcesDirectory)/Iautomategit/SourceCode/solrclient_requirements.txt && pip install -r $(Build.SourcesDirectory)/Iautomategit/SourceCode/requirements.txt && pip install coverage && cd $(Build.SourcesDirectory)/Iautomategit/SourceCode && python testcase_coverage.py && deactivate.bat
+
+  - task: SonarQubePrepare@5
+    displayName: 'Prepare Analysis On SonarQube'
+    inputs:
+      SonarQube: 'SonarEnterprisepython'
+      scannerMode: 'CLI'
+      configMode: 'file'
+      configFile: 'Iautomategit/SourceCode/sonar-project.properties'
+      extraProperties: |
+        sonar.verbose=true
+        sonar.python.coverage.reportPaths="$(Build.SourcesDirectory)/Iautomategit/SourceCode/coverage.xml"
+        sonar.python.version=3
+  
+  - task: SonarQubeAnalyze@5
+    displayName: 'Run Code Analysis'
+    inputs:
+      jdkversion: 'JAVA_HOME_11_X64'
