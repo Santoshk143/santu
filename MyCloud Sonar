@@ -1,0 +1,217 @@
+variables:
+  websitepublishurl: '$(Agent.BuildDirectory)\$(Build.BuildId)'
+
+jobs:
+- job: 'SonarqubeJob'
+  timeoutInMinutes: 120
+  workspace:
+      clean: all
+  pool:
+    name: $(AgentPoolName)
+
+  steps:
+  - checkout: none
+    clean: true
+
+  - task: PowerShell@2
+    displayName: 'Get Triggered Branch Name'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $branchMatch = '$(Build.SourceBranch)'
+        Write-Host $branchMatch
+        $branchMatch -match 'refs/heads/(?<content>.*)'
+        $branchName= $Matches['content']
+        Write-Host "##vso[task.setvariable variable=branch_name;]$branchName"
+        Write-Host "##vso[task.setvariable variable=Product;]MyCloud"
+
+  - script: |
+      git config --system core.longpaths true
+      git config --global core.ignorecase true
+      git clone https://$(username):$(password)@$(ADOURL)/MyCloud/_git/MyCloudProduct --branch $(branch_name) --depth=1 --single-branch $(Product)
+
+  - task: CopyFiles@1
+    displayName: 'Copy Publish Profiles'
+    inputs:
+      SourceFolder: '$(build.sourcesDirectory)/$(Product)/Devops/PublishProfiles'
+      Contents: 'MyCloudWebsiteNew.pubxml'
+      TargetFolder: '$(build.sourcesDirectory)/$(Product)/SourceCode/Web/Website/App_Data/PublishProfiles'
+      OverWrite: true
+
+  - task: CmdLine@2
+    displayName: 'Restore Nuget Packages'
+    inputs:
+      script: |
+        nuget restore SourceCode\HCL.CloudBilling.DataCollector\HCL.CloudBilling.DataCollector.sln
+        nuget restore SourceCode\HCL.CloudPerformance.DataCollector\HCL.CloudPerformance.DataCollector.sln
+        nuget restore SourceCode\HCL.MyCloud.EmbeddedInstaller\HCL.MyCloud.EmbeddedInstaller\HCL.MyCloud.EmbeddedInstaller.sln
+        nuget restore SourceCode\HCL.MyCloud.Installer\HCL.MyCloud.Installer.sln
+        nuget restore SourceCode\MyCloudListner\HCL.MyCloud.Listner.sln
+        nuget restore SourceCode\Services\HCL.MyCloud.AllXaaS\HCL.MyCloud.AllXaaS.sln
+        nuget restore SourceCode\Services\HCL.MyCloud.CiscoIntersightSyncService\HCL.MyCloud.CiscoIntersightSyncService.sln
+        nuget restore SourceCode\Services\HCL.MyCloud.CustomComplianceJobService\HCL.MyCloud.CustomComplianceJobService.sln
+        nuget restore SourceCode\Services\HCL.MyCloud.GenericService\HCL.MyCloud.GenericService.sln
+        nuget restore SourceCode\Services\HCL.MyCloud.Monitor\HCL.MyCloud.MonitorService.sln
+        nuget restore SourceCode\Services\HCL.MyCloud.Service.AD\HCL.MyCloud.Service.AD.sln
+        nuget restore SourceCode\Services\HCL.MyCloud.Snow\HCL.MyCloud.Snow.sln
+        nuget restore SourceCode\Services\HCL.MyCloud.SyncComplianceJobService\HCL.MyCloud.SyncComplianceJobService.sln
+        nuget restore SourceCode\Services\HCL.MyCloud.SyncJobService\HCL.MyCloud.SyncJobService.sln
+        nuget restore SourceCode\Services\HCL.MyCloud.WorkflowEngine\HCL.MyCloud.WorkflowEngine.sln
+        nuget restore SourceCode\Utility\HCL.MyCloud.AWSSignatureV4\HCL.MyCloud.AWSSignatureV4.sln
+        nuget restore SourceCode\Utility\HCL.MyCloud.ComponentAuthorization\HCL.MyCloud.ComponentAuthorization.sln
+        nuget restore SourceCode\Utility\HCL.MyCloud.Encryption\HCL.MyCloud.Encryption.sln
+        nuget restore SourceCode\Utility\HCL.MyCloud.GZipEncoder\HCL.MyCloud.GZipEncoder.sln
+        nuget restore SourceCode\Utility\HCL.MyCloud.JobServiceContract\HCL.MyCloud.JobServiceContract.sln
+        nuget restore SourceCode\Utility\HCL.MyCloud.Log\HCL.MyCloud.Log.sln
+        nuget restore SourceCode\Utility\HCL.MyCloud.PowerShell\HCL.MyCloud.PowerShell.sln
+        nuget restore SourceCode\Utility\HCL.MyCloud.QueueService\HCL.MyCloud.QueueService.sln
+        nuget restore SourceCode\Web\HCL.Autonomics.MyCloud.Portal.sln
+      workingDirectory: '$(Build.SourcesDirectory)/$(Product)'
+
+  - task: CmdLine@2
+    displayName: 'Start Sonar Scanner'
+    inputs:
+      script: |
+          cd $(build.sourcesDirectory)/$(Product)/SourceCode
+          $(SonarPath) begin /k:"MyCloud-Git" /d:sonar.host.url=$(SonarURL) /d:sonar.login=$(sonarqube_token) /d:sonar.branch.name=$(branch_name) /v:$(project_version) /d:sonar.cs.vstest.reportsPaths="$(build.sourcesDirectory)/TestResults/**/*.trx" /d:sonar.cs.vscoveragexml.reportsPaths="$(build.sourcesDirectory)/TestResults/**/*.coveragexml" /d:sonar.python.version=3 /d:sonar.verbose=true
+
+  - task: replacetokens@4
+    inputs:
+      rootDirectory: '$(build.sourcesDirectory)/$(Product)/SourceCode/Web/Website/App_Data/PublishProfiles'
+      targetFiles: 'MyCloudWebsiteNew.pubxml'
+      encoding: 'auto'
+      tokenPattern: 'default'
+      writeBOM: true
+      actionOnMissing: 'warn'
+      keepToken: false
+      actionOnNoFiles: 'continue'
+      enableTransforms: false
+      useLegacyPattern: false
+      enableTelemetry: true
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/HCL.MyCloud.Installer/HCL.MyCloud.Installer.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/HCL.MyCloud.Installer/HCL.MyCloud.Installer.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform)
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Services/HCL.MyCloud.Service.AD/HCL.MyCloud.Service.AD.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Services/HCL.MyCloud.Service.AD/HCL.MyCloud.Service.AD.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/HCL.CloudBilling.DataCollector/HCL.CloudBilling.DataCollector.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/HCL.CloudBilling.DataCollector/HCL.CloudBilling.DataCollector.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Services/HCL.MyCloud.GenericService/HCL.MyCloud.GenericService.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Services/HCL.MyCloud.GenericService/HCL.MyCloud.GenericService.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Services/HCL.MyCloud.AllXaaS/HCL.MyCloud.AllXaaS.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Services/HCL.MyCloud.AllXaaS/HCL.MyCloud.AllXaaS.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/MyCloudListner/HCL.MyCloud.Listner.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/MyCloudListner/HCL.MyCloud.Listner.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Web\HCL.MyCloud.Web.WebAPI\HCL.MyCloud.Web.WebAPI.csproj'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Web\HCL.MyCloud.Web.WebAPI\HCL.MyCloud.Web.WebAPI.csproj /p:DeployOnBuild=true /p:Configuration=Release /p:PublishProfile=MyCloudAPI
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Web\Website\website.publishproj'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Web\Website\website.publishproj /p:DeployOnBuild=true /p:PublishProfile=$(build.sourcesDirectory)/$(Product)/SourceCode/Web/Website/App_Data/PublishProfiles/MyCloudWebsiteNew.pubxml
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/HCL.CloudPerformance.DataCollector/HCL.CloudPerformance.DataCollector.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/HCL.CloudPerformance.DataCollector/HCL.CloudPerformance.DataCollector.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Services/HCL.MyCloud.SyncJobService/HCL.MyCloud.SyncJobService.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Services/HCL.MyCloud.SyncJobService/HCL.MyCloud.SyncJobService.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Services/HCL.MyCloud.Snow/HCL.MyCloud.Snow.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Services/HCL.MyCloud.Snow/HCL.MyCloud.Snow.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Services/HCL.MyCloud.SyncComplianceJobService/HCL.MyCloud.SyncComplianceJobService.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Services/HCL.MyCloud.SyncComplianceJobService/HCL.MyCloud.SyncComplianceJobService.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None 
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Services/HCL.MyCloud.CustomComplianceJobService/HCL.MyCloud.CustomComplianceJobService.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Services/HCL.MyCloud.CustomComplianceJobService/HCL.MyCloud.CustomComplianceJobService.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Services/HCL.MyCloud.Monitor/HCL.MyCloud.MonitorService.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Services/HCL.MyCloud.Monitor/HCL.MyCloud.MonitorService.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Services/HCL.MyCloud.WorkflowEngine/HCL.MyCloud.WorkflowEngine.sln'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Services/HCL.MyCloud.WorkflowEngine/HCL.MyCloud.WorkflowEngine.sln /p:Configuration=$(BuildConfiguration) /p:Platform=$(BuildPlatform) /p:DebugSymbols=false /p:DebugType=None
+
+  - task: CmdLine@2
+    displayName: 'Build solution SourceCode/Web/HCL.MyCloud.Web.Service/HCL.MyCloud.Web.Service.csproj'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Web/HCL.MyCloud.Web.Service/HCL.MyCloud.Web.Service.csproj /p:DeployOnBuild=true /p:Configuration=Release /p:PublishProfile=$(build.sourcesDirectory)/$(Product)/SourceCode/Web/HCL.MyCloud.Web.Service/Properties/PublishProfiles/FolderProfile.pubxml
+
+  - task: CmdLine@2
+    displayName: 'Build HCL.MyCloud.UnitTest.csproj'
+    inputs:
+      script: |
+        msbuild $(Product)/SourceCode/Web/HCL.MyCloud.UnitTest/HCL.MyCloud.UnitTest.csproj
+
+  - task: VSTest@2
+    displayName: 'Run Unit Test Cases'
+    inputs:
+      testSelector: 'testAssemblies'
+      testAssemblyVer2: 'HCL.MyCloud.UnitTest.dll'
+      searchFolder: '$(System.DefaultWorkingDirectory)\$(Product)/SourceCode/Web/HCL.MyCloud.UnitTest/bin/Debug'
+      vstestLocationMethod: 'location'
+      vstestLocation: '$(vstestPath)'
+      platform: '$(BuildPlatform)'
+      configuration: '$(BuildConfiguration)'
+      codeCoverageEnabled: true
+
+  - task: CmdLine@2
+    displayName: 'End Sonar Scanner'
+    inputs:
+      script: |
+        cd $(build.sourcesDirectory)\$(Product)\SourceCode
+        $(SonarPath) end /d:sonar.login=$(sonarqube_token)
+
+  - task: DeleteFiles@1
+    displayName: 'Delete files from $(Build.BinariesDirectory)'
+    inputs:
+      SourceFolder: '$(Build.BinariesDirectory)'
+      Contents: '**'
