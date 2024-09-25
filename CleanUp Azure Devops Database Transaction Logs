@@ -1,0 +1,104 @@
+
+trigger:
+- none
+
+pool: $(AgentPoolName)
+
+steps:
+- checkout: self
+  clean: true
+
+- task: CmdLine@2
+  inputs:
+    script: 'mkdir $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS'
+  displayName: 'Create Logs Directory'
+
+- task: CmdLine@2
+  inputs:
+    script: | 
+        sqlcmd -S $(SQLServerInstance) -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\AzureDevOps_DevOpsRND.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_DevOpsRND.TXT
+        type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_DevOpsRND.TXT
+  displayName: 'Clean up DevOpsRND Database Logs'
+
+- task: CmdLine@2
+  inputs:
+    script: | 
+        sqlcmd -S $(SQLServerInstance) -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\AzureDevOps_Lucy.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_Lucy.TXT
+        type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_Lucy.TXT
+  displayName: 'Clean up Lucy Database Logs'
+
+- task: CmdLine@2
+  inputs:
+    script: | 
+        sqlcmd -S $(SQLServerInstance) -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\AzureDevOps_AIFramework.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_AIFramework.TXT
+        type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_AIFramework.TXT
+  displayName: 'Clean up AIFrameworkDatabase Logs'
+
+- task: CmdLine@2
+  inputs:
+    script: | 
+        sqlcmd -S $(SQLServerInstance) -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\Tfs_MyXalytics.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\Tfs_MyXalytics.TXT
+        type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\Tfs_MyXalytics.TXT
+  displayName: 'Clean up MyXalytics Database Logs'
+
+- task: CmdLine@2
+  inputs:
+    script: | 
+        sqlcmd -S $(SQLServerInstance) -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\Tfs_MyCloud.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\Tfs_MyCloud.TXT
+        type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\Tfs_MyCloud.TXT
+  displayName: 'Clean up MyCloud Database Logs'
+
+- task: CmdLine@2
+  inputs:
+    script: | 
+      sqlcmd -S $(SQLServerInstance) -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\AzureDevOps_Optibot.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_Optibot.TXT
+      type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_Optibot.TXT
+  displayName: 'Clean up BigFixResolve Database Logs'
+
+- task: CmdLine@2
+  inputs:
+    script: | 
+      sqlcmd -S $(SQLServerInstance) -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\AzureDevOps_MTAAS.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_MTAAS.TXT
+      type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_MTAAS.TXT
+  displayName: 'Clean up MTAAS Database Logs'
+
+- task: CmdLine@2
+  inputs:
+    script: | 
+      sqlcmd -S $(SQLServerInstance) -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\AzureDevOps_iECE.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_iECE.TXT
+      type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_iECE.TXT
+  displayName: 'Clean up iECE Database Logs'
+
+- task: CmdLine@2
+  inputs:
+    script: | 
+        sqlcmd -S $(SQLServerInstance) -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\AzureDevOps_IAutomate.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_IAutomate.TXT
+        type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_IAutomate.TXT
+  displayName: 'Clean up IAutomate Database Logs'
+
+# - task: CmdLine@2
+#   inputs:
+#     script: | 
+#         sqlcmd -S hclt-pc5056-1\TFSDRYICE  -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\AzureDevOps_EventCorrelationSystem.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_EventCorrelationSystem.TXT
+#         type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_EventCorrelationSystem.TXT
+#   displayName: 'Clean up EventCorrelationSystem Database Logs'
+
+- task: CmdLine@2
+  inputs:
+    script: | 
+        sqlcmd -S $(SQLServerInstance) -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\AzureDevOps_DefaultCollection.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_DefaultCollection.TXT
+        type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_DefaultCollection.TXT
+  displayName: 'Clean up DefaultCollection Database Logs'
+
+- task: CmdLine@2
+  inputs:
+    script: | 
+        sqlcmd -S $(SQLServerInstance) -i $(Build.SourcesDirectory)\DATABASE-SCRIPTS\AzureDevOps_AIMLToolKit.sql -o $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_AIMLToolKit.TXT
+        type $(Build.ArtifactStagingDirectory)\DATABASE-SCRIPTS-LOGS\AzureDevOps_AIMLToolKit.TXT
+  displayName: 'Clean up AIMLToolKit Database Logs'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
