@@ -1,0 +1,98 @@
+jobs:
+- job: 'whitesource'
+  timeoutInMinutes: 120
+  workspace:
+      clean: all
+  pool:
+    name: $(AgentPoolName)
+
+  steps:   
+  - checkout: none
+    clean: true
+  
+  - script: |
+      git clone https://$(username):$(password)@$(ADOURL)/EventCorrelationSystem/_git/EventCorrelationSystem -b $(tag_name) --single-branch --depth=1 $(tag_name)
+    displayName: Clone_EventCorrelationSystem_Repository
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.10.0'
+      addToPath: true
+      architecture: 'x64'
+
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'Creating Virtual env & installing dependencies'
+    inputs:
+      script: |
+        cd $(build.sourcesdirectory)/$(tag_name)/iECE_Main/MainUX/IECE_UI
+        python -m venv IECE_UI_env && IECE_UI_env\Scripts\activate && IECE_UI_env\Scripts\python.exe -m pip install --upgrade pip && pip install virtualenv && pip install -r $(build.sourcesdirectory)/$(tag_name)/iECE_Main/MainUX/IECE_UI/requirements.txt && deactivate
+  
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'Creating Virtual env & installing dependencies'
+    inputs:
+      script: |
+        cd $(build.sourcesdirectory)/$(tag_name)/iECE_Main/Components/DataCollector_IECE
+        python -m venv DataCollector_IECE_env && DataCollector_IECE_env\Scripts\activate && DataCollector_IECE_env\Scripts\python.exe -m pip install --upgrade pip && pip install virtualenv && pip install -r $(build.sourcesdirectory)/$(tag_name)/iECE_Main/Components/DataCollector_IECE/requirements.txt && deactivate
+
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'Creating Virtual env & installing dependencies'
+    inputs:
+      script: |
+        cd $(build.sourcesdirectory)/$(tag_name)/iECE_Main/Components/IECE_CRON
+        python -m venv IECE_CRON_env && IECE_CRON_env\Scripts\activate && IECE_CRON_env\Scripts\python.exe -m pip install --upgrade pip && pip install virtualenv && pip install -r $(build.sourcesdirectory)/$(tag_name)/iECE_Main/Components/IECE_CRON/requirements.txt && deactivate
+
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'Creating Virtual env & installing dependencies'
+    inputs:
+      script: |
+        cd $(build.sourcesdirectory)/$(tag_name)/iECE_Main/Components/IECE_Publish
+        python -m venv IECE_Publish_env && IECE_Publish_env\Scripts\activate && IECE_Publish_env\Scripts\python.exe -m pip install --upgrade pip && pip install virtualenv && pip install -r $(build.sourcesdirectory)/$(tag_name)/iECE_Main/Components/IECE_Publish/requirements.txt && deactivate
+
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'Creating Virtual env & installing dependencies'
+    inputs:
+      script: |
+        cd $(build.sourcesdirectory)/$(tag_name)/iECE_Main/Components/IECE_Streams
+        python -m venv IECE_Streams_env && IECE_Streams_env\Scripts\activate && IECE_Streams_env\Scripts\python.exe -m pip install --upgrade pip && pip install virtualenv && pip install -r $(build.sourcesdirectory)/$(tag_name)/iECE_Main/Components/IECE_Streams/requirements.txt && deactivate
+
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'installing npm dependencies'
+    inputs:
+      script: |
+        cd $(build.sourcesdirectory)/$(tag_name)/iECE_Main/MainUX/chatApp
+        npm install --force
+
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'installing npm dependencies'
+    inputs:
+      script: |
+        cd $(build.sourcesdirectory)/$(tag_name)/iECE_Main/MainUX/IECE_UI_FrontEnd
+        npm install --force
+
+
+  - task: PowerShell@2
+    displayName: 'Get Scan Date'
+    inputs:
+      targetType: 'inline'
+      script: |
+        $date1=$(Get-Date -Format dd_MM_yyyy)
+        Write-Host $date1
+        Write-Host "##vso[task.setvariable variable=scandate;]$date1"
+
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'Whitesource pipeline with build'
+    env:
+      APIKEY: $(apiKey)
+      USERKEY: $(userKey)
+    inputs:
+      script: |
+        cd $(build.sourcesdirectory)\$(tag_name)\EventCorrelationSystem
+        java -jar "C:\whitesource\wss-unified-agent.jar" -c "$(build.sourcesdirectory)/$(tag_name)/DevOps/wss-unified-agent.config" -apiKey $(apiKey) -userKey $(userKey) -d "." -product "iECE" -project IEM_$(version)_$(scandate)
