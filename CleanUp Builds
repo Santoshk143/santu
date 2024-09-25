@@ -1,0 +1,289 @@
+trigger:
+- none
+
+schedules:
+  - cron: "0 0 * * *"
+    displayName: "Daily Midnight Run"
+    branches:
+      include:
+        - master
+
+pool: $(AgentPoolName)
+
+steps:
+- checkout: none
+
+- task: PowerShell@2
+  displayName: 'CLean MyXa_WebAPIs Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/MyDB/MyXa_WebAPIs/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-30) # Loop through builds and delete if older than cutoff date
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+
+- task: PowerShell@2
+  displayName: 'Clean MyXa_WebApps Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/MyDB/MyXa_WebApps/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-30) # Loop through builds and delete if older than cutoff date
+      if($builds.Count -gt 0){
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+      }
+
+- task: PowerShell@2
+  displayName: 'Clean iAutomate Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/IAutomate/IAutomateBaseCode_NEW/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-3) # Loop through builds and delete if older than cutoff date
+      if($builds.Count -gt 0){
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+      }
+
+- task: PowerShell@2
+  displayName: 'Clean BigFix Resolve Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/BigFix%20Resolve/BigFixResolve/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-30) # Loop through builds and delete if older than cutoff date
+      if($builds.Count -gt 0){
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+      }
+
+- task: PowerShell@2
+  displayName: 'Clean BigFix UI Client Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/BigFix%20Resolve/BigFix%20Resolve%20Client%20UI/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-30) # Loop through builds and delete if older than cutoff date
+      if($builds.Count -gt 0){
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+      }
+
+- task: PowerShell@2
+  displayName: 'Clean MyCloud Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/MyCloud/MyCloudProduct/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-30) # Loop through builds and delete if older than cutoff date
+      if($builds.Count -gt 0){
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+      }
+
+- task: PowerShell@2
+  displayName: 'Clean EventCorrelationSystem Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/EventCorrelationSystem/EventCorrelationSystem/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-30) # Loop through builds and delete if older than cutoff date
+      if($builds.Count -gt 0){
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+      }
+
+- task: PowerShell@2
+  displayName: 'Clean OrganicOptibot HealingStation Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/Organic-Optibot/Healing%20Station/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-30) # Loop through builds and delete if older than cutoff date
+      if($builds.Count -gt 0){
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+      }
+
+- task: PowerShell@2
+  displayName: 'Clean OrganicOptibot ResetStation Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/Organic-Optibot/ResetStationOrganic/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-30) # Loop through builds and delete if older than cutoff date
+      if($builds.Count -gt 0){
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+      }
+
+- task: PowerShell@2
+  displayName: 'Clean Lucy Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/Lucy/Lucy/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-30) # Loop through builds and delete if older than cutoff date
+      if($builds.Count -gt 0){
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+      }
+
+- task: PowerShell@2
+  displayName: 'Clean AIMLToolkit Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/AIMLToolKit/AIMLToolKit/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-30) # Loop through builds and delete if older than cutoff date
+      if($builds.Count -gt 0){
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+      }
+
+- task: PowerShell@2
+  enabled: false
+  displayName: 'Clean AIFramework Builds'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $baseUrl = "$(ADOURL)/AIFramework/AIFramework-Eventcorrelationsystem/_apis/build/builds" # Set up authentication
+      $pat = '$(PAT)'
+      $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($pat)"))
+      $headers = @{authorization = "Basic $token"} #$headers = @{ Authorization = "Bearer $token" } # Get all pipeline builds
+      $response = Invoke-RestMethod -Uri $baseUrl -Headers $headers -Method Get
+      $builds = $response.value | Where-Object {($_.keepForever -eq $False) -and ($_.status -ne 'inProgress') -and ($_.status -ne 'notStarted')}
+      $cutoffDate = (Get-Date).AddDays(-30) # Loop through builds and delete if older than cutoff date
+      if($builds.Count -gt 0){
+      foreach ($build in $builds) {
+          $buildDate = Get-Date $build.finishTime
+          if ($buildDate -lt $cutoffDate) {
+              $deleteUrl = "$baseUrl/$($build.id)?api-version=5.0"
+              Invoke-RestMethod -Uri $deleteUrl -Headers $headers -Method Delete
+              Write-Host "Deleted build $($build.id)"
+          }
+      }
+      }
