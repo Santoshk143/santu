@@ -1,0 +1,97 @@
+trigger:
+- none
+
+jobs:
+- job: 'SonarqubeJob'
+  timeoutInMinutes: 120
+  workspace:
+      clean: all
+  pool:
+    name: $(AgentPoolName)
+
+  steps:
+  - checkout: none
+    clean: true
+  
+  - task: PowerShell@2
+    inputs:
+      targetType: 'inline'
+      script: |
+        $scope = '$(AnalysisScope)'
+        Write-Host $scope
+        if($scope -eq 'Python' -or $scope -eq 'python')
+        {
+          Write-Host "##vso[task.setvariable variable=analysisScope;]python"
+        }
+        elseif($scope -eq '.net' -or $scope -eq '.Net')
+        {
+          Write-Host "##vso[task.setvariable variable=analysisScope;].net"
+        }
+        else
+        {
+          Write-Host "##vso[task.setvariable variable=analysisScope;]complete"
+        }
+
+  - task: CmdLine@2
+    displayName: 'Clone AIMLToolKit Code'
+    inputs:
+     script: |
+       git clone https://$(username):$(password)@$(ADOURL)/AIMLToolKit/AIMLToolKit/_git/AIMLToolKit --branch $(branch_name) --depth=1 --single-branch $(Product)
+  
+  - task: CmdLine@2
+    displayName: 'Restore Nuget Packages'
+    condition: and(succeeded(), or(eq(variables['analysisScope'], '.net'),eq(variables['analysisScope'], 'complete')))
+    inputs:
+      script: |
+        nuget restore $(Product)/AIMLToolkit_DotnetRepo/AIMLToolkitApp/Domain/AIMLTookKit.Domain/AIMLTookKit.Domain.csproj
+        nuget restore $(Product)/AIMLToolkit_DotnetRepo/AIMLToolkitApp/Infrastructure/AIMLToolkit.Data/AIMLToolkit.Data.csproj
+        nuget restore $(Product)/AIMLToolkit_DotnetRepo/AIMLToolkitApp/Infrastructure/AIMLToolkit.KRS/AIMLToolkit.Krs.Client.csproj
+        nuget restore $(Product)/AIMLToolkit_DotnetRepo/AIMLToolkitApp/Infrastructure/AIMLToolkitApp.PythonApi/AIMLToolkit.Python.Client.csproj'
+        nuget restore $(Product)/AIMLToolkit_DotnetRepo/AIMLToolkitApp/Services/AIMLToolkit.Services/AIMLToolkit.Services.csproj
+        nuget restore $(Product)/AIMLToolkit_DotnetRepo/AIMLToolkitApp/Web/AIMLToolkit.Api/AIMLToolkit.Api.csproj
+        nuget restore $(Product)/AIMLToolkit_DotnetRepo/AIMLToolkitApp/Web/AIMLToolkitApp.Web/AIMLToolkitApp.Web.csproj
+        nuget restore $(Product)/AIMLToolkit_DotnetRepo/CommonServices/EmailService/EmailService.csproj
+        nuget restore $(Product)/AIMLToolkit_DotnetRepo/CommonServices/KRSService/KRSService/KRSService.csproj
+        nuget restore $(Product)/AIMLToolkit_DotnetRepo/CommonServices/LoggingService/LoggingService.csproj
+  
+  - task: CmdLine@2
+    displayName: 'Restore .Net Core Nuget Packages'
+    condition: and(succeeded(), or(eq(variables['analysisScope'], '.net'),eq(variables['analysisScope'], 'complete')))
+    inputs:
+      script: |
+        dotnet restore $(Product)/AIMLToolkit_DotnetRepo\Shared\Shared.Messaging\Shared.Messaging.csproj
+        dotnet restore $(Product)/AIMLToolkit_DotnetRepo\Shared\Shared.Logging\Shared.Logging.csproj
+        dotnet restore $(Product)/AIMLToolkit_DotnetRepo\Shared\Shared.Email\Shared.Email.csproj
+        dotnet restore $(Product)/AIMLToolkit_DotnetRepo\Shared\AIMLToolkit.Helper\Shared.Helper.csproj
+        dotnet restore $(Product)/AIMLToolkit_DotnetRepo\AIMLToolkitApp\Infrastructure\AIMLToolkitApp.PythonApi\AIMLToolkit.Python.Client.csproj
+
+  - task: CmdLine@2
+    displayName: 'Start Sonar Scanner'
+    inputs:
+      script: |
+          cd $(Build.SourcesDirectory)/$(Product)
+          $(SonarPath) begin /k:"AIMLToolKit" /d:sonar.host.url=$(SonarURL) /v:$(project_version) /d:sonar.login=$(sonarqube_token) /d:sonar.python.version=3 /d:sonar.verbose=true /d:sonar.projectBaseDir=$(Build.SourcesDirectory)/$(Product) /d:sonar.visualstudio.enable=true /d:sonar.branch.name=$(branch_name)
+
+  - task: MSBuild@1
+    displayName: 'Build MLToolkit.sln'
+    condition: and(succeeded(), or(eq(variables['analysisScope'], '.net'),eq(variables['analysisScope'], 'complete')))
+    inputs:
+      solution: '$(Build.SourcesDirectory)/$(Product)/AIMLToolkit_DotnetRepo/MLToolkit.sln'
+      msbuildLocationMethod: 'location'
+      msbuildLocation: '$(MSBuildPath)'
+      platform: '$(BuildPlatform)'
+      configuration: '$(Buildconfiguration)'
+      clean: true
+      restoreNugetPackages: true
+  
+  - task: CmdLine@2
+    displayName: 'Build Python Build'
+    condition: and(succeeded(), or(eq(variables['analysisScope'], 'python'),eq(variables['analysisScope'], 'complete')))
+    inputs:
+      script: 'dotnet build $(Build.SourcesDirectory)/$(Product)\DevOps\BuildPythonRepo\BuildPythonRepo.csproj'
+
+  - task: CmdLine@2
+    displayName: 'End Sonar Scanner'
+    inputs:
+      script: |
+        $(SonarPath) end /d:sonar.login=$(sonarqube_token)
