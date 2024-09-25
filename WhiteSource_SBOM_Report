@@ -1,0 +1,35 @@
+trigger:
+- none
+
+pool: $(AgentPoolName)
+
+steps:
+ - task: PowerShell@2
+   displayName: 'Get SBOM_Report from Mend'
+   inputs:
+     targetType: 'inline'
+     script: |
+       $url='https://saas.whitesourcesoftware.com/api/v1.4'
+       $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
+       $headers.Add("Content-Type", "application/json")
+
+       $body = @"
+       {
+        `"requestType`" : `"generateProjectReportAsync`",
+        `"userKey`": "$(userKey)", 
+        `"projectToken`" : "$(projectKey)",
+        "reportType`":`"ProjectSBOMReport`",
+        "standard`":`"spdx`",
+        "format`":`"json`"
+       }
+       "@
+
+       $response= Invoke-RestMethod $url -Method 'POST' -Headers $headers -Body $body
+       $response | ConvertTo-Json -Depth 9 | Out-File -FilePath $(Build.ArtifactStagingDirectory)\response.json
+
+ - task: PublishBuildArtifacts@1
+   displayName: 'Publish Artifacts'
+   inputs:
+     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+     ArtifactName: 'SBOM Report'
+     publishLocation: 'Container'
