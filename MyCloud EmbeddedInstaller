@@ -1,0 +1,115 @@
+trigger:
+- none
+
+jobs:
+- job: Build
+  timeoutInMinutes: 0
+
+  pool:
+    name: $(AgentPoolName)
+    timeoutInMinutes: 0
+
+  workspace:
+      clean: all
+
+  variables:
+    BuildPlatform: 'any cpu'
+    BuildConfiguration: 'Release'
+
+  steps:
+    - checkout: none
+      clean: true
+
+    - task: PowerShell@2
+      displayName: 'Get Triggered Branch Name'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $branchMatch = '$(Build.SourceBranch)'
+          Write-Host $branchMatch
+          $branchMatch -match 'refs/heads/(?<content>.*)'
+          $branchName= $Matches['content']
+          Write-Host "##vso[task.setvariable variable=branch_name;]$branchName"
+          Write-Host "##vso[task.setvariable variable=Product;]MyCloud"
+
+    - script: |
+        git config --system core.longpaths true
+        git config --global core.ignorecase true
+        git clone https://$(username):$(password)@$(ADOURL)/MyCloud/_git/MyCloudProduct --branch $(branch_name) --depth=1 --single-branch $(Product)
+
+    - task: TriggerBuild@3
+      displayName: 'Trigger MyCloud CIIstallerBuild'
+      inputs:
+        definitionIsInCurrentTeamProject: true
+        buildDefinition: '391'
+        queueBuildForUserThatTriggeredBuild: true
+        ignoreSslCertificateErrors: true
+        useSameSourceVersion: false
+        useCustomSourceVersion: false
+        useSameBranch: false
+        branchToUse: '$(branch_name)'
+        waitForQueuedBuildsToFinish: true
+        waitForQueuedBuildsToFinishRefreshTime: '60'
+        failTaskIfBuildsNotSuccessful: true
+        cancelBuildsIfAnyFails: false
+        treatPartiallySucceededBuildAsSuccessful: false
+        downloadBuildArtifacts: true
+        dropDirectory: '$(Build.SourcesDirectory)/$(Product)/SourceCode/HCL.MyCloud.EmbeddedInstaller/HCL.MyCloud.EmbeddedInstaller/HCL.MyCloud.EmbeddedInstaller'
+        storeInEnvironmentVariable: false
+        buildParameters: 'project_version:$(project_version)'
+        authenticationMethod: 'OAuth Token'
+        password: '$(System.AccessToken)'
+        enableBuildInQueueCondition: false
+        dependentOnSuccessfulBuildCondition: false
+        dependentOnFailedBuildCondition: false
+        checkbuildsoncurrentbranch: false
+        failTaskIfConditionsAreNotFulfilled: false
+
+    - task: Unzip@1
+      displayName: 'Unzip BuildAndVersionDetail.txt'
+      inputs:
+        ItemSpec: '$(Build.SourcesDirectory)/$(Product)/SourceCode/HCL.MyCloud.EmbeddedInstaller/HCL.MyCloud.EmbeddedInstaller/HCL.MyCloud.EmbeddedInstaller/MyCloudInstaller.zip'
+        destination: '$(Build.SourcesDirectory)/$(Product)'
+
+    - task: CopyFiles@2
+      displayName: 'Copy BuildAndVersionDetail.txt EmbeddedInstaller Root Directory'
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)/$(Product)/MyCloudInstaller/Files'
+        Contents: 'BuildAndVersionDetail.txt'
+        TargetFolder: '$(Build.SourcesDirectory)/$(Product)/SourceCode/HCL.MyCloud.EmbeddedInstaller/HCL.MyCloud.EmbeddedInstaller/HCL.MyCloud.EmbeddedInstaller'
+
+    - task: CmdLine@2
+      displayName: 'Build Solution HCL.MyCloud.EmbeddedInstaller.csproj'
+      inputs:
+        script: 'dotnet publish $(build.SourcesDirectory)/$(Product)/SourceCode/HCL.MyCloud.EmbeddedInstaller/HCL.MyCloud.EmbeddedInstaller/HCL.MyCloud.EmbeddedInstaller/HCL.MyCloud.EmbeddedInstaller.csproj -p:PublishProfile=$(build.SourcesDirectory)/$(branch_name)/$(PublishProfilePath)'
+
+    - task: CopyFiles@1
+      displayName: 'Copy Files to: $(Build.ArtifactStagingDirectory)/MyCloudInstaller'
+      inputs:
+        SourceFolder: '$(build.SourcesDirectory)/$(Product)/SourceCode/HCL.MyCloud.EmbeddedInstaller/HCL.MyCloud.EmbeddedInstaller/HCL.MyCloud.EmbeddedInstaller\bin\Release\net6.0-windows\publish\win-x64'
+        Contents: '*.exe'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/MyCloudInstaller'
+      timeoutInMinutes: 0
+  
+    - task: PowerShell@2
+      displayName: 'Rename Installer'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $newName = 'HCL_DRYiCE_MyCloud_v'+'$(project_version)'+'_Installer.exe'
+          Rename-Item -Path $(Build.ArtifactStagingDirectory)\MyCloudInstaller\HCL.MyCloud.EmbeddedInstaller.exe -NewName $newName
+          Write-Host "##vso[task.setvariable variable=installerName;]$newName"
+
+    - task: CmdLine@2
+      displayName: 'Digitally Sign Installer'
+      env:
+        CERTIFICATE_PASSWORD: $(CertificatePassword)
+      inputs:
+        script: |
+          $(SignToolPath) sign /f $(build.SourcesDirectory)/$(Product)\SourceCode\EmbeddedInstallerCertificate\HCL.Dryicelabs.DigitalSignature.pfx /p "%CERTIFICATE_PASSWORD%" /t http://timestamp.digicert.com /fd SHA512 $(Build.ArtifactStagingDirectory)\MyCloudInstaller\$(installerName)
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/MyCloudInstaller'
+        ArtifactName: 'MyCloudInstaller'
+        publishLocation: 'Container'
