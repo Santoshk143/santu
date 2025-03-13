@@ -1,0 +1,105 @@
+trigger: none  # Run only when manually triggered
+
+stages:
+# 📥 Stage 1: Download NuGet Package
+- stage: Download
+  displayName: 'Download NuGet Package'
+  jobs:
+  - job: Download
+    displayName: 'Download and Verify Package'
+    pool:
+      name: $(AgentpoolName)  # Your variable-defined agent pool
+
+    steps:
+    - checkout: none
+    - task: PowerShell@2
+      displayName: "Download NuGet Package"
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "🔍 Downloading NuGet package: $(packageName) version $(packageVersion)"
+          mkdir $(Build.SourcesDirectory)\nuget -Force
+
+          # Download NuGet package from public repo (Example: NuGet.org)
+          nuget install $(packageName) -Version $(packageVersion) -OutputDirectory $(Build.SourcesDirectory)\nuget
+
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "❌ Failed to download NuGet package!"
+              exit 1
+          }
+
+    - task: PowerShell@2
+      displayName: "Verify NuGet Package Integrity"
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "🔍 Searching for NuGet package in: $(Build.SourcesDirectory)\nuget"
+          $packageFile = Get-ChildItem -Path "$(Build.SourcesDirectory)\nuget" -Filter "*.nupkg" -Recurse | Select-Object -ExpandProperty FullName -First 1
+
+          if ($packageFile) {
+              Write-Host "✅ Package found: $packageFile"
+              Write-Host "🔍 Verifying NuGet package integrity..."
+              
+              nuget verify -All $packageFile
+              
+              if ($LASTEXITCODE -ne 0) {
+                  Write-Error "❌ NuGet package verification failed!"
+                  exit 1
+              } else {
+                  Write-Host "✅ NuGet package verified successfully."
+              }
+          } else {
+              Write-Error "❌ No .nupkg file found! Check the previous step."
+              exit 1
+          }
+
+# 🛑 Stage 2: Manual Approval
+- stage: Approval
+  dependsOn: Download
+  displayName: 'Approval Stage'
+  condition: succeeded('Download')
+  jobs:
+  - deployment: Approval
+    environment: 'Package_env'  # Environment where approval happens
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: none
+            clean: true
+          - script: echo "No operations to perform."
+            displayName: "🔍 Waiting for Approval"
+
+# 🚀 Stage 3: Push to Azure DevOps Feed
+- stage: PushToFeed
+  dependsOn: Approval
+  displayName: 'Push NuGet Package to Azure Feed'
+  condition: succeeded('Approval')
+  jobs:
+  - job: Push
+    displayName: 'Push Package to Azure DevOps Feed'
+    pool:
+      name: $(AgentpoolName)
+
+    steps:
+      # Step 4: Push the Package to Azure DevOps Feed
+      - checkout: none
+
+      - powershell: |
+          $packageFiles = Get-ChildItem -Path "$(Build.SourcesDirectory)\nuget" -Recurse -Filter "*.nupkg" | Sort-Object Name
+          if ($packageFiles.Count -eq 0) {
+              Write-Host "❌ No NuGet packages found to push!"
+              exit 1
+          }
+    
+          foreach ($packageFile in $packageFiles) {
+              Write-Host "🚀 Pushing package: $($packageFile.FullName)"
+              nuget push $packageFile.FullName -Source "https://coredryice.hclpnp.com/DevOps%20TEST/MyXa-WebAPI-Test/_packaging/emptyfeedapi/nuget/v3/index.json" -ApiKey az
+              if ($LASTEXITCODE -ne 0) {
+                  Write-Host "❌ Failed to push $($packageFile.FullName)"
+                  exit 1
+              }
+          }
+    
+          Write-Host "✅ All packages pushed successfully!"
+        displayName: "Push Packages Recursively to Azure DevOps Feed"
