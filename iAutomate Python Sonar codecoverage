@@ -1,10 +1,8 @@
 trigger:
 - none
 
-name: 6.4.$(Year:yy)$(DayOfYear).$(BuildId)
-
 jobs:
-- job: 'PythonUnitTestCoverage'
+- job: 'TestCoverage'
   timeoutInMinutes: 180
   workspace:
     clean: all
@@ -13,104 +11,77 @@ jobs:
 
   steps:
   - checkout: none
-    clean: true 
+    clean: true
+
+  - script: |
+      git clone https://$(username):$(password)@$(ADOURL)/EventCorrelationSystem/EventCorrelationSystem/_git/EventCorrelationSystem --branch $(branch_name) --depth=1 $(branch_name)
+    displayName: Clone_EventCorrelationSystem_Repository
 
   - task: UsePythonVersion@0
     inputs:
-      versionSpec: '3.10.0'
+      versionSpec: '3.10.11'
       addToPath: true
-      architecture: 'x64'
-      
-  - script: |
-      git clone https://$(username):$(password)@$(ADOURL)/IAutomate/IAutomateBaseCode_NEW/_git/IAutomateBaseCode_GIT --branch $(tag_name) --depth=1 Iautomategit
-  
-  - script: |
-      git clone https://$(username):$(password)@$(ADOURL)/DefaultCollection/Devops_Internal_Pipeline/_git/pythonpackages --branch $(branch_name) --depth=1 pythonpackages
-     
+
   - task: CmdLine@2
-    displayName: 'Checking python version'
+    displayName: 'Restore .Net Core Nuget Packages'
     inputs:
       script: |
-        python --version
+        dotnet restore $(Build.SourcesDirectory)/$(branch_name)/IEM_Core/IEM.sln 
 
   - task: CmdLine@2
     displayName: 'Creating virtual env'
     inputs:
       script: |
-        cd $(Build.SourcesDirectory)/Iautomategit
+        cd $(Build.SourcesDirectory)/$(branch_name)
         python -m venv env
 
-  - task: PowerShell@2
-    enabled: false
-    displayName: 'Copy python prerequisites'
-    inputs:
-      targetType: 'inline'
-      script: |
-        Copy-Item -Path 'E:\Software\python_prereq' -Destination $(Build.SourcesDirectory)\env\Lib\site-packages -Recurse -Force -Verbose
-
-  - task: PowerShell@2
-    displayName: 'Copy python prerequisites'
-    inputs:
-      targetType: 'inline'
-      script: |
-        Copy-Item -Path $(Build.SourcesDirectory)/pythonpackages/* -Destination $(Build.SourcesDirectory)\Iautomategit\env\Lib\site-packages -Recurse -Force -Verbose
-  
   - task: CmdLine@2
     enabled: true
-    displayName: 'Install Nuget Package from Azure Feeds'
+    displayName: 'Running Python unittest cases'
+    continueOnError: true
     inputs:
-      script: '$(NugetPath) install $(NugetPackageName) -version $(NugetPackageVer)'
-  
-  - task: PowerShell@2
-    enabled: true
-    displayName: 'Unzip the Nuget Package to Correct Location'
-    inputs:
-      targetType: inline
       script: |
-        $destination="$(Build.SourcesDirectory)\Iautomategit\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp/$(ZipFileName)"
-        $extractionFolderPath="$(Build.SourcesDirectory)\Iautomategit\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp"
-        New-Item -ItemType Directory -Name '$(ZipFileName)' -Path "$(Build.SourcesDirectory)\Iautomategit\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp"
-        $fileToUnzip="$(Build.SourcesDirectory)/$(NugetPackageName).$(NugetPackageVer)/$(ZipFileName).zip"
-        Expand-Archive $fileToUnzip -DestinationPath $destination
+        cd $(Build.SourcesDirectory)/$(branch_name)
+        env\Scripts\activate.bat && python -m pip install --upgrade pip && pip install -r $(Build.SourcesDirectory)/$(branch_name)/iECE_Main/MainUX/IECE_UI/requirements.txt && pip install coverage pytest pytest-cov unittest-xml-reporting && cd $(Build.SourcesDirectory)/$(branch_name)/iECE_Main\MainUX\IECE_UI && coverage run --source='.' manage.py test && python -m coverage report && coverage xml && pytest -v -o junit_family=xunit1 --junitxml=$(Build.SourcesDirectory)\$(branch_name)\test-results\results.xml
 
-  
-  - task: PowerShell@2
-    displayName: 'Delete files from cloned pythonpackages'
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'Start Sonar Scanner'
     inputs:
-      targetType: 'inline'
       script: |
-        Remove-Item -Path "$(Build.SourcesDirectory)\pythonpackages" -Recurse -Force
+        cd $(Build.SourcesDirectory)/$(branch_name)
+        $(SonarScannerPath) begin /k:iECE /d:sonar.host.url=$(sonarqube_url) /d:sonar.login=$(sonarqube_token) /d:sonar.branch.name=$(branch_name) /d:sonar.python.version=3 /d:sonar.python.coverage.reportPaths="$(Build.SourcesDirectory)\$(branch_name)\iECE_Main\MainUX\IECE_UI\coverage.xml" /d:sonar.python.xunit.reportPath="$(Build.SourcesDirectory)\$(branch_name)\test-results\results.xml" /d:sonar.exclusions="**/DBProd_Script/**,**/DBScripts/**,**/Database/**,**/Lib/**,**/libs/****/dist/**, **/JQuery/**, **/Admin/**, **/UtilityJS/**, **/Content/**, **/Contents/**, **/lib/**, **/js/**, **/sessvars.js, **/Scripts/UtilityJS/**, **/scripts/**, **/Scripts/**" /d:sonar.c.file.suffixes=- /d:sonar.cpp.file.suffixes=- /d:sonar.objc.file.suffixes=- /v:$(project_version) /d:sonar.python.xunit.skipDetails=true
+
+  - task: MSBuild@1
+    displayName: 'Build MLToolkit.sln'
+    inputs:
+      solution: '$(Build.SourcesDirectory)/$(branch_name)/IEM_Core/IEM.sln'
+      msbuildLocationMethod: 'location'
+      msbuildLocation: '$(MSBuildPath)'
+      platform: '$(BuildPlatform)'
+      configuration: '$(Buildconfiguration)'
+      clean: true
+      restoreNugetPackages: true
+
+  - task: CmdLine@2
+    displayName: 'Build Python Build'
+    inputs:
+      script: 'dotnet build $(Build.SourcesDirectory)\$(branch_name)\DevOps\BuildPythonRepo\BuildPythonRepo.csproj'
+
+  - task: CmdLine@2
+    enabled: true
+    displayName: 'End Sonar Scanner'
+    inputs:
+      script: |
+        $(SonarScannerPath) end /d:sonar.login=$(sonarqube_token)
+
+  - task: PublishCodeCoverageResults@2
+    inputs:
+      summaryFileLocation: '$(Build.SourcesDirectory)\$(branch_name)\iECE_Main\MainUX\IECE_UI\coverage.xml'
     continueOnError: true
 
-  - task: PowerShell@2
-    enabled: false
-    displayName: 'Copy Sentence-transformers_all-MiniLM-L6-v2 Contents'
+  - task: PublishTestResults@2
     inputs:
-      targetType: 'inline'
-      script: |
-        Copy-Item -Path 'E:\Software\models--sentence-transformers--all-MiniLM-L6-v2\' -Destination $(Build.SourcesDirectory)\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp -Recurse -Force -Verbose
-
-  - task: CmdLine@2
-    enabled: true
-    displayName: 'Running Python unittest cases '
-    inputs:
-      script: |
-        cd $(Build.SourcesDirectory)/Iautomategit
-        env\Scripts\activate.bat && pip install -r $(Build.SourcesDirectory)/Iautomategit/SourceCode/solrclient_requirements.txt && pip install -r $(Build.SourcesDirectory)/Iautomategit/SourceCode/requirements.txt && pip install coverage && cd $(Build.SourcesDirectory)/Iautomategit/SourceCode && python testcase_coverage.py && deactivate.bat
-
-  - task: SonarQubePrepare@5
-    displayName: 'Prepare Analysis On SonarQube'
-    inputs:
-      SonarQube: 'SonarEnterprisepython'
-      scannerMode: 'CLI'
-      configMode: 'file'
-      configFile: 'Iautomategit/SourceCode/sonar-project.properties'
-      extraProperties: |
-        sonar.verbose=true
-        sonar.python.coverage.reportPaths="$(Build.SourcesDirectory)/Iautomategit/SourceCode/coverage.xml"
-        sonar.python.version=3
-  
-  - task: SonarQubeAnalyze@5
-    displayName: 'Run Code Analysis'
-    inputs:
-      jdkversion: 'JAVA_HOME_11_X64'
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '$(Build.SourcesDirectory)/$(branch_name)/iECE_Main\MainUX\IECE_UI\results.xml'
+      mergeTestResults: true
