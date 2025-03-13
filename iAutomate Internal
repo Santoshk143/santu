@@ -1,1052 +1,975 @@
-trigger:
-- none
+trigger: none
 
-name: 6.4.$(Year:yy)$(DayOfYear).$(BuildId)
+name: 6.5.$(Year:yy)$(DayOfYear).$(BuildId)
 
-pool:
-  name: $(AgentPoolName)
-  demands:
-  - Product -equals iAutomate
-  timeoutInMinutes: 0
+jobs:
+  - job: 'iAutomateCIBuildArtifacts'
+    timeoutInMinutes: 120
+    pool: $(AgentPoolName)
 
-workspace:
-    clean: all
+    steps:
+      - checkout: self
+        fetchDepth: 1
 
-steps:
-  - checkout: self
-    fetchDepth: 1
-    clean: true
+      - task: PowerShell@2
+        enabled: true
+        displayName: 'Check Product Name and Copy Product Logo'
+        inputs:
+          targetType: 'inline'
+          script: |
+            if('$(Product_Name)' -eq 'iAutomate')
+            {
+            $title = 'DRYiCE iAutomate'
+            }
+            elseif ('$(Product_Name)' -eq 'BigFix')
+            {
+              $title = 'BigFix Runbook AI'
+            }
+            elseif ('$(Product_Name)' -eq 'SolarWinds')
+            {
+              $title = 'SolarWinds'
+            }
+            else
+            {
+              Write-Host 'Please Provide Correct Product Name from 
+              iAutomate/BigFix/SolarWinds'  
+              exit 1
+            }
 
-  - task: PowerShell@2
-    enabled: true
-    displayName: 'Check Product Name and Copy Product Logo'
-    inputs:
-      targetType: 'inline'
-      script: |
-        if('$(Product_Name)' -eq 'iAutomate')
-        {
-        $title = 'DRYiCE iAutomate'
-        }
-        elseif ('$(Product_Name)' -eq 'BigFix')
-        {
-          $title = 'BigFix Runbook AI'
-        }
-        elseif ('$(Product_Name)' -eq 'SolarWinds')
-        {
-          $title = 'SolarWinds'
-        }
-        else
-        {
-          Write-Host 'Please Provide Correct Product Name from 
-          iAutomate/BigFix/SolarWinds'  
-          exit 1
-        }
+            write-host "##vso[task.setvariable variable=Title;]$title"
 
-        write-host "##vso[task.setvariable variable=Title;]$title"
+            Copy-Item -Path '$(build.sourcesdirectory)\SourceCode\iAutomateWeb\iAutomateWeb\Contents\logo\$(Product_Name)\*' -Destination '$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb/Contents/logo' -Recurse -Force -Verbose
 
-        Copy-Item -Path '$(build.sourcesdirectory)\SourceCode\iAutomateWeb\iAutomateWeb\Contents\logo\$(Product_Name)\*' -Destination '$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb/Contents/logo' -Recurse -Force -Verbose
+            Copy-Item -Path '$(build.sourcesdirectory)\SourceCode\iAutomateWeb\iAutomateWeb.Service\Contents\logo\$(Product_Name)\*' -Destination '$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb.Service/Contents/logo' -Recurse -Force -Verbose
 
-        Copy-Item -Path '$(build.sourcesdirectory)\SourceCode\iAutomateWeb\iAutomateWeb.Service\Contents\logo\$(Product_Name)\*' -Destination '$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb.Service/Contents/logo' -Recurse -Force -Verbose
+            Copy-Item -Path '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.installer\PreRequisitesChecker\Contents\logo\$(Product_Name)\*' -Destination '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.installer\PreRequisitesChecker/Contents/logo' -Recurse -Force -Verbose
 
-        Copy-Item -Path '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.installer\PreRequisitesChecker\Contents\logo\$(Product_Name)\*' -Destination '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.installer\PreRequisitesChecker/Contents/logo' -Recurse -Force -Verbose
+            Copy-Item -Path '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmbeddedInstaller\HCL.iAutomate.EmbeddedInstaller\Contents\logo\$(Product_Name)\*' -Destination '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.EmbeddedInstaller\HCL.iAutomate.EmbeddedInstaller/Contents/logo' -Recurse -Force -Verbose
 
-        Copy-Item -Path '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmbeddedInstaller\HCL.iAutomate.EmbeddedInstaller\Contents\logo\$(Product_Name)\*' -Destination '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.EmbeddedInstaller\HCL.iAutomate.EmbeddedInstaller/Contents/logo' -Recurse -Force -Verbose
+            Copy-Item -Path '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\$(Product_Name)\*' -Destination '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images' -Recurse -Force -Verbose
 
-  - task: PowerShell@2
-    enabled: true
-    displayName: 'Copy favicon.ico'
-    inputs:
-      targetType: 'inline'
-      script: |
-        Copy-Item -Path $(build.sourcesdirectory)\SourceCode\iAutomateWeb\iAutomateWeb\Contents\logo\$(Product_Name)\favicon.ico -Destination $(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb -Recurse -Force -Verbose
-        Copy-Item -Path $(build.sourcesdirectory)\SourceCode\iAutomateWeb\iAutomateWeb.Service\Contents\logo\$(Product_Name)\favicon.ico  -Destination $(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb.Service -Recurse -Force -Verbose
-        Copy-Item -Path $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.installer\PreRequisitesChecker\Contents\logo\$(Product_Name)\favicon.ico  -Destination $(build.sourcesdirectory)\SourceCode/HCL.iAutomate.installer\PreRequisitesChecker -Recurse -Force -Verbose
-        Copy-Item -Path $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmbeddedInstaller\HCL.iAutomate.EmbeddedInstaller\Contents\logo\$(Product_Name)\favicon.ico  -Destination $(build.sourcesdirectory)\SourceCode/HCL.iAutomate.EmbeddedInstaller\HCL.iAutomate.EmbeddedInstaller -Recurse -Force -Verbose
+      - task: PowerShell@2
+        enabled: true
+        displayName: 'Copy favicon.ico'
+        inputs:
+          targetType: 'inline'
+          script: |
+            Copy-Item -Path $(build.sourcesdirectory)\SourceCode\iAutomateWeb\iAutomateWeb\Contents\logo\$(Product_Name)\favicon.ico -Destination $(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb -Recurse -Force -Verbose
+            Copy-Item -Path $(build.sourcesdirectory)\SourceCode\iAutomateWeb\iAutomateWeb.Service\Contents\logo\$(Product_Name)\favicon.ico  -Destination $(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb.Service -Recurse -Force -Verbose
+            Copy-Item -Path $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.installer\PreRequisitesChecker\Contents\logo\$(Product_Name)\favicon.ico  -Destination $(build.sourcesdirectory)\SourceCode/HCL.iAutomate.installer\PreRequisitesChecker -Recurse -Force -Verbose
+            Copy-Item -Path $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmbeddedInstaller\HCL.iAutomate.EmbeddedInstaller\Contents\logo\$(Product_Name)\favicon.ico  -Destination $(build.sourcesdirectory)\SourceCode/HCL.iAutomate.EmbeddedInstaller\HCL.iAutomate.EmbeddedInstaller -Recurse -Force -Verbose
 
-  - task: PowerShell@2
-    enabled: true
-    displayName: 'Update Title in Config Files'
-    inputs:
-      targetType: 'inline'
-      script: |
-        Write-Host "The title is being set to $(Title)"
+      - task: PowerShell@2
+        enabled: true
+        displayName: 'Update Title in Config Files'
+        inputs:
+          targetType: 'inline'
+          script: |
+            Write-Host "The title is being set to $(Title)"
 
-        $filename = 'SourceCode/iAutomateWeb/iAutomateWeb.Service/Web.config'
-        $xmlDoc = New-Object xml
-        $xmlDoc.Load($filename)
+            $filename = 'SourceCode/iAutomateWeb/iAutomateWeb.Service/Web.config'
+            $xmlDoc = New-Object xml
+            $xmlDoc.Load($filename)
 
-        $titlenodes = $xmlDoc.SelectNodes('//appSettings/add[@key="title"]')
-        $titlenodes[0].value='$(Title)'
-        $xmlDoc.Save($filename)
+            $titlenodes = $xmlDoc.SelectNodes('//appSettings/add[@key="title"]')
+            $titlenodes[0].value='$(Title)'
+            $xmlDoc.Save($filename)
 
-        $filename1 = 'SourceCode/iAutomateWeb/iAutomateWeb/Web.config'
-        $xmlDoc1 = New-Object xml
-        $xmlDoc1.Load($filename1)
+            $filename1 = 'SourceCode/iAutomateWeb/iAutomateWeb/Web.config'
+            $xmlDoc1 = New-Object xml
+            $xmlDoc1.Load($filename1)
 
-        $titlenodes1 = $xmlDoc1.SelectNodes('//appSettings/add[@key="title"]')
-        $titlenodes1[0].value='$(Title)'
-        $xmlDoc1.Save($filename1)
+            $titlenodes1 = $xmlDoc1.SelectNodes('//appSettings/add[@key="title"]')
+            $titlenodes1[0].value='$(Title)'
+            $xmlDoc1.Save($filename1)
 
-        $filename2 = 'SourceCode/HCL.iAutomate.installer/PreRequisitesChecker/App.config'
-        $xmlDoc2 = New-Object xml
-        $xmlDoc2.Load($filename2)
+            $filename2 = 'SourceCode/HCL.iAutomate.installer/PreRequisitesChecker/App.config'
+            $xmlDoc2 = New-Object xml
+            $xmlDoc2.Load($filename2)
 
-        $titlenodes2 = $xmlDoc2.SelectNodes('//appSettings/add[@key="title"]')
-        $titlenodes2[0].value='$(Title)'
-        $xmlDoc2.Save($filename2)
+            $titlenodes2 = $xmlDoc2.SelectNodes('//appSettings/add[@key="title"]')
+            $titlenodes2[0].value='$(Title)'
+            $xmlDoc2.Save($filename2)
 
-  - task: PowerShell@2
-    enabled: true
-    displayName: 'Update CopyrightFooter in web.config'
-    inputs:
-      targetType: 'inline'
-      script: |
-        $isSolarwinds = '$(Title)'
-        if ($isSolarwinds -eq 'SolarWinds') {
-          $path1 = "SourceCode\iAutomateWeb\iAutomateWeb\web.config"
-          $path2 = "SourceCode\iAutomateWeb\iAutomateWeb.Service\web.config"
-          $xml = New-Object XML
-          $xml.Load($path1)
-          $node = $xml.SelectSingleNode("//add[@key='CopyrightFooter']")
-          $node.value = "Supported Browsers Google Chrome, Firefox, and Microsoft Edge"
-          $xml.Save($path1)
-          $xml.Load($path2)
-          $node = $xml.SelectSingleNode("//add[@key='CopyrightFooter']")
-          $node.value = "Supported Browsers Google Chrome, Firefox, and Microsoft Edge"
-          $xml.Save($path2)
-        }
+      - task: PowerShell@2
+        enabled: true
+        displayName: 'Update CopyrightFooter in web.config'
+        inputs:
+          targetType: 'inline'
+          script: |
+            $isSolarwinds = '$(Title)'
+            if ($isSolarwinds -eq 'SolarWinds') {
+              $path1 = "SourceCode\iAutomateWeb\iAutomateWeb\web.config"
+              $path2 = "SourceCode\iAutomateWeb\iAutomateWeb.Service\web.config"
+              $xml = New-Object XML
+              $xml.Load($path1)
+              $node = $xml.SelectSingleNode("//add[@key='CopyrightFooter']")
+              $node.value = "Supported Browsers Google Chrome, Firefox, and Microsoft Edge"
+              $xml.Save($path1)
+              $xml.Load($path2)
+              $node = $xml.SelectSingleNode("//add[@key='CopyrightFooter']")
+              $node.value = "Supported Browsers Google Chrome, Firefox, and Microsoft Edge"
+              $xml.Save($path2)
+            }
 
-  - task: PowerShell@2
-    displayName: Copy files based on product name
-    inputs:
-      targetType: 'inline'
-      script: |
-        $productname = '$(Title)'
-        Write-Host "Title: $productname"
+      - task: PowerShell@2
+        enabled: true
+        displayName: Copy files based on product name
+        inputs:
+          targetType: 'inline'
+          script: |
+            $productname = '$(Title)'
+            Write-Host "Title: $productname"
+            
+            if ($productname -eq 'DRYiCE iAutomate') {
+              Copy-Item -Path $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\iAutomate\* -Destination $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\ -Recurse -Force -Verbose
+            }
+            elseif ($productname -eq 'Bigfix Runbook AI') {
+              Copy-Item -Path $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\BigFix\* -Destination $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\ -Recurse -Force -Verbose
+            }
+            elseif ($productname -eq 'SolarWinds') {
+              Copy-Item -Path $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\SolarWinds\* -Destination $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\ -Recurse -Force -Verbose
+            }
+            else {
+              Write-Host 'Please Provide Correct Product name'  
+              exit 1
+            }      
+
+      - task: PowerShell@2
+        enabled: true
+        displayName: 'Update Assembly Version'
+        inputs:
+          targetType: 'inline'
+          script: |
+            $buildNumber ="$(Build.BuildNumber)"
+            $pathToSearch = "$(Build.sourcesdirectory)"
+
+            Write-Host "$buildNumber"
+
+            function Set-AssemblyVersion(){
+            try{
+                [regex]$pattern = "\d+\.\d+\.\d+\.\d+"
+                if ($buildNumber -match $pattern -ne $true){
+                    throw "could not extract"
+                }
+                [string]$searchFilter ="AssemblyInfo.*"
+                [regex]$assemblyVersion = "(AssemblyVersion\("")(\d+\.\d+\.\d+\.\d+)(""\))"
+                $newAssemblyVersion = "`${1}$($buildNumber)`$3"
+                [regex]$assemblyFileVersion = "(AssemblyFileVersion\("")(\d+\.\d+\.\d+\.\d+)(""\))"
+                $newAssemblyFileVersion = "`${1}$($buildNumber)`$3"
+
+                gci -Path $pathToSearch -Filter $searchFilter -Recurse | %{
+                Write-Host  -> Updating $($_.FullName)
+                # Remove the readonly flag on the file
+                sp $_.FullName IsReadOnly $false
+                # Replcae using regex
+                (gc $_.FullName) | % { $_ -replace $assemblyVersion, $newAssemblyVersion } | sc $_.FullName
+                (gc $_.FullName) | % { $_ -replace $assemblyFileVersion, $newAssemblyFileVersion } | sc $_.FullName
+                }
+            }
+            finally{
+            Write-Host "Script execution is complete"}
+            }
+
+            Set-AssemblyVersion
+
+      - task: PowerShell@2
+        enabled: true
+        inputs:
+          targetType: 'inline'
+          script: |
+            echo "Checking if publish folder exists..."
+            if (Test-Path -Path "C:\iAutomate_Web_Publish\*") {
+                echo "Deleting publish folder..."
+                Remove-Item -Path "C:\iAutomate_Web_Publish\*" -Recurse -Force
+            } else {
+                echo "Publish folder does not exist, skipping delete step..."
+            }
+        displayName: 'Check and delete publish folder'
+
+      - template: templates/restorepackages.yml
+
+      - task: CmdLine@2
+        enabled: true
+        displayName: 'Install Nuget Package from Azure Feeds'
+        inputs:
+          script: '$(NugetPath) install $(NugetPackageName) -version $(NugetPackageVer)'
+      
+      - task: PowerShell@2
+        enabled: true
+        displayName: 'Unzip the Nuget Package to Correct Location'
+        inputs:
+          targetType: inline
+          script: |
+            $destination="$(Build.SourcesDirectory)\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp/$(ZipFileName)"
+            $extractionFolderPath="$(Build.SourcesDirectory)\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp"
+            New-Item -ItemType Directory -Name '$(ZipFileName)' -Path "$(Build.SourcesDirectory)\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp"
+            $fileToUnzip="$(Build.SourcesDirectory)/$(NugetPackageName).$(NugetPackageVer)/$(ZipFileName).zip"
+            Expand-Archive $fileToUnzip -DestinationPath $destination
+
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Build PreRequisitesChecker.sln' 
+        inputs:
+          solution: 'SourceCode/HCL.iAutomate.installer/PreRequisitesChecker.sln'
+          msbuildLocationMethod: 'location'
+          msbuildLocation: '$(MSBuildPath)'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+          clean: true
+      
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Build Project iAutomateWeb.csproj'
+        inputs:
+          solution: '$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb/iAutomateWeb.csproj'
+          msbuildLocationMethod: location
+          msbuildLocation: '$(MSBuildPath)'
+          msbuildArguments: '/p:DeployOnBuild=True /p:PublishProfile=$(build.sourcesdirectory)/SourceCode/iAutomateWeb/iAutomateWeb/Properties/PublishProfiles/IAutomate.pubxml /p:Configuration=Release'
+          clean: true
+      
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Publish Project WebApi Project.csproj'
+        inputs:
+          solution: '$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb.WebAPI/iAutomateWeb.WebAPI.csproj'
+          msbuildLocationMethod: location
+          msbuildLocation: '$(MSBuildPath)'
+          msbuildArguments: '/p:DeployOnBuild=True /p:PublishProfile=$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb.WebAPI/Properties/PublishProfiles/FolderProfile.pubxml /p:Configuration=Release'
+          clean: true
+
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Build Solution HCL.iAutomate.GenericService.sln'
+        inputs:
+          solution: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.GenericService/HCL.iAutomate.GenericService.sln'
+          msbuildLocationMethod: location
+          msbuildLocation: '$(MSBuildPath)'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+          clean: true
+      
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Build Solution HCL.iAutomate.DataCollector.sln'
+        inputs:
+          solution: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.DataCollector/HCL.iAutomate.DataCollector.sln'
+          msbuildLocationMethod: location
+          msbuildLocation: '$(MSBuildPath)'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+          clean: true
+      
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Build Solution HCL.iAutomate.Release.Service.sln'
+        inputs:
+          solution: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.Release.Service/HCL.iAutomate.Release.Service.sln'
+          msbuildLocationMethod: location
+          msbuildLocation: '$(MSBuildPath)'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+          clean: true
+
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Build Solution Hcl.iAutomate.RbaService.sln'
+        inputs:
+          solution: '$(build.sourcesdirectory)\SourceCode/Hcl.iAutomate.RbaService.RestBased/Hcl.iAutomate.RbaService.sln'
+          msbuildLocationMethod: location
+          msbuildLocation: '$(MSBuildPath)'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+          clean: true
+
+      - task: MSBuild@1
+        displayName: 'Build Solution HCL.iAutomate.RbaExecutor.sln'
+        inputs:
+          solution: '$(Build.SourcesDirectory)/SourceCode/HCL.iAutomate.RbaExecutor/HCL.iAutomate.RbaExecutor.sln'
+          msbuildLocationMethod: 'location'
+          msbuildLocation: '$(MSBuildPath)'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+          clean: true
+      
+      - task: CmdLine@2
+        enabled: true
+        displayName: 'Publish HCL.iAutomate.RbaExecutor.Api.csproj'
+        inputs:
+          script: |
+            cd $(build.SourcesDirectory)/SourceCode/HCL.iAutomate.RbaExecutor/HCL.iAutomate.RbaExecutor.Api
+            dotnet publish HCL.iAutomate.RbaExecutor.Api.csproj -p:PublishProfile=Properties/PublishProfiles/FolderProfile.pubxml --configuration Release --runtime linux-x64 --output bin\Release\net8.0\publish\ --framework net8.0
+
+      - task: CmdLine@2
+        enabled: true
+        displayName: 'Msbuild for creating RPM Package'
+        inputs:
+          script: |
+            cd $(build.SourcesDirectory)/SourceCode/HCL.iAutomate.RbaExecutor/HCL.iAutomate.RbaExecutor.Api
+            dotnet msbuild HCL.iAutomate.RbaExecutor.Api.csproj /t:CreateRPM /p:TargetFramework=net8.0 /p:Configuration=Release
+
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Build Solution HCL.iAutomate.Listner.sln'
+        inputs:
+          solution: '$(build.sourcesdirectory)\SourceCode/iAutomateListner/HCL.iAutomate.Listner.sln'
+          msbuildLocationMethod: location
+          msbuildLocation: '$(MSBuildPath)'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+          clean: true
+      
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Build Solution HCL.iAutomate.Service.AD.sln'
+        inputs:
+          solution: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.ADSyncService/HCL.iAutomate.Service.AD.sln'
+          msbuildLocationMethod: location
+          msbuildLocation: '$(MSBuildPath)'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+          clean: true
+      
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Build Project iAutomateWeb.Service.csproj'
+        inputs:
+          solution: '$(build.sourcesDirectory)\SourceCode/iAutomateWeb/iAutomateWeb.Service/iAutomateWeb.Service.csproj'
+          msbuildLocationMethod: location
+          msbuildLocation: '$(MSBuildPath)'
+          msbuildArguments: '/p:DeployOnBuild=True /p:PublishProfile=$(Build.SourcesDirectory)/SourceCode/iAutomateWeb/iAutomateWeb.Service/Properties/PublishProfiles/FolderProfile.pubxml /p:Configuration=Release'
+          clean: true
+      
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Build Solution HCL.iAutomate.EmailService.sln'
+        inputs:
+          solution: '$(build.sourcesDirectory)\SourceCode/HCL.iAutomate.EmailService/HCL.iAutomate.EmailService.sln'
+          msbuildLocationMethod: location
+          msbuildLocation: '$(MSBuildPath)'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+          clean: true
+      
+      - task: MSBuild@1
+        enabled: true
+        displayName: 'Build Solution HCL.iAutomate.DagService.sln'
+        inputs:
+          solution: '$(build.sourcesDirectory)/SourceCode/HCL.iAutomate.DagService/HCL.iAutomate.DagService.sln'
+          msbuildLocationMethod: 'location'
+          msbuildLocation: '$(MSBuildPath)'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+          clean: true
+
+      - task: DeleteFiles@1
+        enabled: true
+        displayName: 'Delete files from $(Build.SourcesDirectory)\Build/Deployment/$tf'
+        inputs:
+          SourceFolder: '$(Build.SourcesDirectory)\Build/Deployment/$tf'
+          Contents: '**'
+        continueOnError: true
+      
+      - task: CopyFiles@1
+        enabled: true
+        displayName: RbaExecutor
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.RbaExecutor\HCL.iAutomate.RbaExecutor.Api\bin\Release\net8.0'
+          Contents: '*.rpm'
+          TargetFolder: '$(build.sourcesdirectory)/SourceCode\HCL.iAutomate.installer\PreRequisitesChecker\bin\Release\Files\AnsibleSDKService'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: Installer
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.installer/PreRequisitesChecker\bin\Release'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer'
+          OverWrite: true
+      
+      - task: CopyFiles@1
+        enabled: true
+        displayName: BaseUI
+        inputs:
+          SourceFolder: 'C:\iAutomate_Web_Publish'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\BaseUI\BaseUI\BaseUI'
+          OverWrite: true
+        condition: succeededOrFailed()
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: Deployment
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\Build\Deployment'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\Deployment\Deployment'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'GenericService Config'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.GenericService\HCL.iAutomate.Generic.Host'
+          Contents: '*.config'
+          TargetFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.GenericService\HCL.iAutomate.Generic.Host\bin\Release'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: GenericService
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.GenericService\HCL.iAutomate.Generic.Host\bin\Release'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\GenericService\GenericService\GenericService'
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'DataCollector Config'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.DataCollector\HCL.iAutomate.DataCollector.Service.Host'
+          Contents: '*.config'
+          TargetFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.DataCollector\HCL.iAutomate.DataCollector.Service.Host\bin\Release'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: DataCollector
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.DataCollector\HCL.iAutomate.DataCollector.Service.Host\bin\Release'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\DataCollection\DataCollection\DataCollection'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: DagService
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.DagService/HCL.DagService.Component.Host/HCL.DagService.Component.Host\bin\Release'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\DagService\DagService\DagService'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: false
+        displayName: 'RbaService Config'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\Hcl.iAutomate.RbaService.RestBased\Program\Program'
+          Contents: '*.config'
+          TargetFolder: '$(build.sourcesdirectory)\SourceCode\Hcl.iAutomate.RbaService.RestBased\Program\Program\bin\Release'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: RbaService
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\Hcl.iAutomate.RbaService.RestBased\Hcl.RbaService.Component.Host\Hcl.RbaService.Component.Host\bin\Release'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\RBA\RBA\RBA'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'ReleaseService Config'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.Release.Service\HCL.iAutomate.Release.Host'
+          Contents: '*.config'
+          TargetFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.Release.Service\HCL.iAutomate.Release.Host\bin\Release'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: ReleaseService
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.Release.Service\HCL.iAutomate.Release.Host\bin\Release'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\ReleaseService\ReleaseService\ReleaseService'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Listner Service Config'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\iAutomateListner\HCL.iAutomate.Listner.Service.Host'
+          Contents: '*.config'
+          TargetFolder: '$(build.sourcesdirectory)\SourceCode\iAutomateListner\HCL.iAutomate.Listner.Service.Host\bin\Release'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Listner Service'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\iAutomateListner\HCL.iAutomate.Listner.Service.Host\bin\Release'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\Listner\Listner\Listner'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: iKnowledge
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.iKnowledge'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\iKnowledge\iKnowledge\iKnowledge'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: IParse
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.iParse\IParse'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\IParse\IParse\IParse'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: EntityModel
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.EntityModel'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\EntityModel\EntityModel\EntityModel'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: IScript
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.iScript'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\IScript\IScript\IScript'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: IUnique
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.iUnique'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\IUnique\IUnique\IUnique'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: KnowledgeRating
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.KnowledgeRating'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\KnowledgeRating\KnowledgeRating\KnowledgeRating'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: Crawler
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.Crawler'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\Crawler\Crawler'
+          OverWrite: true
         
-        if ($productname -eq 'DRYiCE iAutomate') {
-          Copy-Item -Path $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\iAutomate\* -Destination $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\ -Recurse -Force -Verbose
-        }
-        elseif ($productname -eq 'Bigfix Runbook AI') {
-          Copy-Item -Path $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\BigFix\* -Destination $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\ -Recurse -Force -Verbose
-        }
-        elseif ($productname -eq 'SolarWinds') {
-          Copy-Item -Path $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\SolarWinds\* -Destination $(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService\HCL.iAutomate.DataCollector.Service.Host\Images\ -Recurse -Force -Verbose
-        }
-        else {
-          Write-Host 'Please Provide Correct Product name'  
-          exit 1
-        }      
+      - task: CopyFiles@1
+        enabled: true
+        displayName: WebApi
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb.WebAPI/bin/Release/Publish'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\WebApi\WebApi'
 
-  - task: PowerShell@2
-    enabled: true
-    displayName: 'Update Assembly Version'
-    inputs:
-      targetType: 'inline'
-      script: |
-        $buildNumber ="$(Build.BuildNumber)"
-        $pathToSearch = "$(Build.sourcesdirectory)"
+      - task: CopyFiles@1
+        enabled: true
+        displayName: KRS
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/iAutomateWeb//iAutomateWeb.Service/bin/Release/PublishOutput'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\KRS\KRS\KRS'
 
-        Write-Host "$buildNumber"
+      - task: CopyFiles@1
+        displayName: RbaExecutor
+        enabled: true
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.RbaExecutor/HCL.iAutomate.RbaExecutor.Api\bin\Release\net8.0'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\RbaExecutor\RbaExecutor\RbaExecutor'
 
-        function Set-AssemblyVersion(){
-        try{
-            [regex]$pattern = "\d+\.\d+\.\d+\.\d+"
-            if ($buildNumber -match $pattern -ne $true){
-                throw "could not extract"
-            }
-            [string]$searchFilter ="AssemblyInfo.*"
-            [regex]$assemblyVersion = "(AssemblyVersion\("")(\d+\.\d+\.\d+\.\d+)(""\))"
-            $newAssemblyVersion = "`${1}$($buildNumber)`$3"
-            [regex]$assemblyFileVersion = "(AssemblyFileVersion\("")(\d+\.\d+\.\d+\.\d+)(""\))"
-            $newAssemblyFileVersion = "`${1}$($buildNumber)`$3"
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Copy Files to: $(build.artifactstagingdirectory)\Compile\iRecommend\iRecommend'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.iRecommend'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\iRecommend\iRecommend'
 
-            gci -Path $pathToSearch -Filter $searchFilter -Recurse | %{
-            Write-Host  -> Updating $($_.FullName)
-            # Remove the readonly flag on the file
-            sp $_.FullName IsReadOnly $false
-            # Replcae using regex
-            (gc $_.FullName) | % { $_ -replace $assemblyVersion, $newAssemblyVersion } | sc $_.FullName
-            (gc $_.FullName) | % { $_ -replace $assemblyFileVersion, $newAssemblyFileVersion } | sc $_.FullName
-            }
-        }
-        finally{
-        Write-Host "Script execution is complete"}
-        }
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Copy Files  ADSyncService compile folder'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.ADSyncService/HCL.iAutomate.Service.AD\bin\Release'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\ADSync\ADSync\ADSync'
 
-        Set-AssemblyVersion
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Copy Files to: $(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\AdvanceKnowledge'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.IAutomate.AdvancediKnowledge'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\AdvanceKnowledge'
 
-  - task: PowerShell@2
-    inputs:
-      targetType: 'inline'
-      script: |
-        echo "Checking if publish folder exists..."
-        if (Test-Path -Path "C:\iAutomate_Web_Publish\*") {
-            echo "Deleting publish folder..."
-             Remove-Item -Path "C:\iAutomate_Web_Publish\*" -Recurse -Force
-        } else {
-            echo "Publish folder does not exist, skipping delete step..."
-        }
-    displayName: 'Check and delete publish folder'
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Copy Files to: email service'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService/HCL.iAutomate.DataCollector.Service.Host\bin\Release'
+          Contents: '**\*'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\EmailService\EmailService\EmailService'
+          OverWrite: true
 
-  - task: CmdLine@2
-    enabled: true
-    displayName: 'Nuget Restore Packages for Solutions'
-    inputs:
-      script: |
-        nuget restore SourceCode/HCL.iAutomate.ADSyncService/HCL.iAutomate.Service.AD.sln
-        nuget restore SourceCode/HCL.iAutomate.DataCollector/HCL.iAutomate.DataCollector.sln
-        nuget restore SourceCode/HCL.iAutomate.EmailService/HCL.iAutomate.EmailService.sln
-        nuget restore SourceCode/HCL.iAutomate.EmbeddedInstaller/HCL.iAutomate.EmbeddedInstaller.sln
-        nuget restore SourceCode/HCL.iAutomate.EncryptDecrypt/HCL.iAutomate.EncryptDecrypt.sln
-        nuget restore SourceCode/HCL.iAutomate.GenericService/HCL.iAutomate.GenericService.sln
-        nuget restore SourceCode/HCL.iAutomate.installer/PreRequisitesChecker.sln
-        nuget restore SourceCode/Hcl.iAutomate.RbaService.RestBased/Hcl.iAutomate.RbaService.sln
-        nuget restore SourceCode/HCL.iAutomate.Release.Service/HCL.iAutomate.Release.Service.sln
-        nuget restore SourceCode/iAutomateListner/HCL.iAutomate.Listner.sln
-        nuget restore SourceCode/iAutomateWeb/iAutomateWeb.sln
-        nuget restore SourceCode/InstallShield-Installer.SupportLib/InstallShield-Installer.SupportLib.sln
+      - task: PowerShell@2
+        enabled: true
+        inputs:
+          targetType: 'inline'
+          script: |
+            $text = '$(Build.DefinitionName)_$(Build.DefinitionVersion)_$(Build.BuildId).1'
+            Write-Output $text
+            $text | Add-Content '$(build.artifactstagingdirectory)\Compile\BaseUI\BaseUI\BaseUI\BuildVersion.txt'
+            $text | Add-Content '$(build.artifactstagingdirectory)\Compile\Listner\Listner\Listner\BuildVersion.txt'
 
-  - task: PowerShell@2
-    enabled: true
-    displayName: 'Check for DagService'
-    inputs:
-      targetType: 'inline'
-      script: 'if(Test-Path $(build.sourcesdirectory)\SourceCode/HCL.iAutomate.DagService/HCL.iAutomate.DagService.sln)
-        {
-          Write-Host "##vso[task.setvariable variable=dagService;]true"
-        }
-        else
-        {
-          Write-Host "##vso[task.setvariable variable=dagService;]false"
-        }'
-
-  - task: CmdLine@2
-    enabled: true
-    displayName: 'Restore DagService.sln'
-    condition: and(succeeded(), eq(variables['dagService'], 'true'))
-    inputs:
-      script: |
-        nuget restore SourceCode/HCL.iAutomate.DagService/HCL.iAutomate.DagService.sln
-
-  - task: DotNetCoreCLI@2
-    displayName: 'Restore Nuget Packages For HCL.iAutomate.RbaExecutor.sln'
-    inputs:
-      command: 'restore'
-      projects: 'SourceCode/HCL.iAutomate.RbaExecutor/HCL.iAutomate.RbaExecutor.sln'
-      feedsToUse: 'select'
-
-  - task: CmdLine@2
-    enabled: true
-    displayName: 'Install Nuget Package from Azure Feeds'
-    inputs:
-      script: '$(NugetPath) install $(NugetPackageName) -version $(NugetPackageVer)'
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Copy Files to resources folder'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\Resources'
+          TargetFolder: '$(build.artifactstagingdirectory)\Compile\Resources\Resources'
+          OverWrite: true
   
-  - task: PowerShell@2
-    enabled: true
-    displayName: 'Unzip the Nuget Package to Correct Location'
-    inputs:
-      targetType: inline
-      script: |
-        $destination="$(Build.SourcesDirectory)\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp/$(ZipFileName)"
-        $extractionFolderPath="$(Build.SourcesDirectory)\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp"
-        New-Item -ItemType Directory -Name '$(ZipFileName)' -Path "$(Build.SourcesDirectory)\SourceCode/HCL.iAutomate.iRecommend/com/irecommend/nlp"
-        $fileToUnzip="$(Build.SourcesDirectory)/$(NugetPackageName).$(NugetPackageVer)/$(ZipFileName).zip"
-        Expand-Archive $fileToUnzip -DestinationPath $destination
-
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Build PreRequisitesChecker.sln' 
-    inputs:
-      solution: 'SourceCode/HCL.iAutomate.installer/PreRequisitesChecker.sln'
-      msbuildLocationMethod: 'location'
-      msbuildLocation: '$(MSBuildPath)'
-      platform: '$(BuildPlatform)'
-      configuration: '$(BuildConfiguration)'
-      clean: true
-      restoreNugetPackages: true
-  
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Build Project iAutomateWeb.csproj'
-    inputs:
-      solution: '$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb/iAutomateWeb.csproj'
-      msbuildLocationMethod: location
-      msbuildLocation: '$(MSBuildPath)'
-      msbuildArguments: '/p:DeployOnBuild=True /p:PublishProfile=$(build.sourcesdirectory)/SourceCode/iAutomateWeb/iAutomateWeb/Properties/PublishProfiles/IAutomate.pubxml /p:Configuration=Release'
-      clean: true
-  
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Publish Project WebApi Project.csproj'
-    inputs:
-      solution: '$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb.WebAPI/iAutomateWeb.WebAPI.csproj'
-      msbuildLocationMethod: location
-      msbuildLocation: '$(MSBuildPath)'
-      msbuildArguments: '/p:DeployOnBuild=True /p:PublishProfile=$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb.WebAPI/Properties/PublishProfiles/FolderProfile.pubxml /p:Configuration=Release'
-      clean: true
-
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Build Solution HCL.iAutomate.GenericService.sln'
-    inputs:
-      solution: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.GenericService/HCL.iAutomate.GenericService.sln'
-      msbuildLocationMethod: location
-      msbuildLocation: '$(MSBuildPath)'
-      platform: '$(BuildPlatform)'
-      configuration: '$(BuildConfiguration)'
-      clean: true
-      restoreNugetPackages: true
-  
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Build Solution HCL.iAutomate.DataCollector.sln'
-    inputs:
-      solution: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.DataCollector/HCL.iAutomate.DataCollector.sln'
-      msbuildLocationMethod: location
-      msbuildLocation: '$(MSBuildPath)'
-      platform: '$(BuildPlatform)'
-      configuration: '$(BuildConfiguration)'
-      clean: true
-      restoreNugetPackages: true
-  
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Build Solution HCL.iAutomate.Release.Service.sln'
-    inputs:
-      solution: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.Release.Service/HCL.iAutomate.Release.Service.sln'
-      msbuildLocationMethod: location
-      msbuildLocation: '$(MSBuildPath)'
-      platform: '$(BuildPlatform)'
-      configuration: '$(BuildConfiguration)'
-      clean: true
-      restoreNugetPackages: true
-  
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Build Solution Hcl.iAutomate.RbaService.sln'
-    inputs:
-      solution: '$(build.sourcesdirectory)\SourceCode/Hcl.iAutomate.RbaService.RestBased/Hcl.iAutomate.RbaService.sln'
-      msbuildLocationMethod: location
-      msbuildLocation: '$(MSBuildPath)'
-      platform: '$(BuildPlatform)'
-      configuration: '$(BuildConfiguration)'
-      clean: true
-      restoreNugetPackages: true
-
-  - task: MSBuild@1
-    displayName: 'Build Solution HCL.iAutomate.RbaExecutor.sln'
-    inputs:
-      solution: '$(Build.SourcesDirectory)/SourceCode/HCL.iAutomate.RbaExecutor/HCL.iAutomate.RbaExecutor.sln'
-      msbuildLocationMethod: 'location'
-      msbuildLocation: '$(MSBuildPath)'
-      platform: '$(BuildPlatform)'
-      configuration: '$(BuildConfiguration)'
-      clean: true
-      restoreNugetPackages: true
-  
-  - task: CmdLine@2
-    enabled: true
-    displayName: 'Publish HCL.iAutomate.RbaExecutor.Api.csproj'
-    inputs:
-      script: |
-       cd $(build.SourcesDirectory)/SourceCode/HCL.iAutomate.RbaExecutor/HCL.iAutomate.RbaExecutor.Api
-       dotnet publish HCL.iAutomate.RbaExecutor.Api.csproj -p:PublishProfile=Properties/PublishProfiles/FolderProfile.pubxml --configuration Release --runtime linux-x64 --output bin\Release\net7.0\publish\ --framework net7.0
-
-  - task: CmdLine@2
-    enabled: true
-    displayName: 'Msbuild for creating RPM Package'
-    inputs:
-      script: |
-       cd $(build.SourcesDirectory)/SourceCode/HCL.iAutomate.RbaExecutor/HCL.iAutomate.RbaExecutor.Api
-       dotnet msbuild HCL.iAutomate.RbaExecutor.Api.csproj /t:CreateRPM /p:TargetFramework=net7.0 /p:Configuration=Release
-
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Build Solution HCL.iAutomate.Listner.sln'
-    inputs:
-      solution: '$(build.sourcesdirectory)\SourceCode/iAutomateListner/HCL.iAutomate.Listner.sln'
-      msbuildLocationMethod: location
-      msbuildLocation: '$(MSBuildPath)'
-      platform: '$(BuildPlatform)'
-      configuration: '$(BuildConfiguration)'
-      clean: true
-      restoreNugetPackages: true
-  
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Build Solution HCL.iAutomate.Service.AD.sln'
-    inputs:
-      solution: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.ADSyncService/HCL.iAutomate.Service.AD.sln'
-      msbuildLocationMethod: location
-      msbuildLocation: '$(MSBuildPath)'
-      platform: '$(BuildPlatform)'
-      configuration: '$(BuildConfiguration)'
-      clean: true
-      restoreNugetPackages: true
-  
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Build Project iAutomateWeb.Service.csproj'
-    inputs:
-      solution: '$(build.sourcesDirectory)\SourceCode/iAutomateWeb/iAutomateWeb.Service/iAutomateWeb.Service.csproj'
-      msbuildLocationMethod: location
-      msbuildLocation: '$(MSBuildPath)'
-      msbuildArguments: '/p:DeployOnBuild=True /p:PublishProfile=$(Build.SourcesDirectory)/SourceCode/iAutomateWeb/iAutomateWeb.Service/Properties/PublishProfiles/FolderProfile.pubxml /p:Configuration=Release'
-      clean: true
-  
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Build Solution HCL.iAutomate.EmailService.sln'
-    inputs:
-      solution: '$(build.sourcesDirectory)\SourceCode/HCL.iAutomate.EmailService/HCL.iAutomate.EmailService.sln'
-      msbuildLocationMethod: location
-      msbuildLocation: '$(MSBuildPath)'
-      platform: '$(BuildPlatform)'
-      configuration: '$(BuildConfiguration)'
-      clean: true
-      restoreNugetPackages: true
-  
-  - task: MSBuild@1
-    enabled: true
-    displayName: 'Build Solution HCL.iAutomate.DagService.sln'
-    condition: and(succeeded(), eq(variables['dagService'], 'true'))
-    inputs:
-      solution: '$(build.sourcesDirectory)/SourceCode/HCL.iAutomate.DagService/HCL.iAutomate.DagService.sln'
-      msbuildLocationMethod: 'location'
-      msbuildLocation: '$(MSBuildPath)'
-      platform: '$(BuildPlatform)'
-      configuration: '$(BuildConfiguration)'
-      clean: true
-      restoreNugetPackages: true
-
-  - task: DeleteFiles@1
-    enabled: true
-    displayName: 'Delete files from $(Build.SourcesDirectory)\Build/Deployment/$tf'
-    inputs:
-      SourceFolder: '$(Build.SourcesDirectory)\Build/Deployment/$tf'
-      Contents: '**'
-    continueOnError: true
-  
-  - task: CopyFiles@1
-    enabled: true
-    displayName: RbaExecutor
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.RbaExecutor\HCL.iAutomate.RbaExecutor.Api\bin\Release\net7.0'
-      Contents: '*.rpm'
-      TargetFolder: '$(build.sourcesdirectory)/SourceCode\HCL.iAutomate.installer\PreRequisitesChecker\bin\Release\Files\AnsibleSDKService'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: Installer
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.installer/PreRequisitesChecker\bin\Release'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    displayName: SchedulerCall
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)/SourceCode/HCL.IAutomate.AdvancediKnowledge/SchedulerCall'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\AdvanceKnowledge\AdvanceKnowledge\SchedulerCall'
-      OverWrite: true
-    enabled: false
-  
-  - task: CopyFiles@1
-    enabled: true
-    displayName: BaseUI
-    inputs:
-      SourceFolder: 'C:\iAutomate_Web_Publish'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\BaseUI\BaseUI\BaseUI'
-      OverWrite: true
-    condition: succeededOrFailed()
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: Deployment
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\Build\Deployment'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\Deployment\Deployment'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'GenericService Config'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.GenericService\HCL.iAutomate.Generic.Host'
-      Contents: '*.config'
-      TargetFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.GenericService\HCL.iAutomate.Generic.Host\bin\Release'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: GenericService
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.GenericService\HCL.iAutomate.Generic.Host\bin\Release'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\GenericService\GenericService\GenericService'
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'DataCollector Config'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.DataCollector\HCL.iAutomate.DataCollector.Service.Host'
-      Contents: '*.config'
-      TargetFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.DataCollector\HCL.iAutomate.DataCollector.Service.Host\bin\Release'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: DataCollector
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.DataCollector\HCL.iAutomate.DataCollector.Service.Host\bin\Release'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\DataCollection\DataCollection\DataCollection'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: DagService
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.DagService/HCL.DagService.Component.Host/HCL.DagService.Component.Host\bin\Release'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\DagService\DagService\DagService'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: false
-    displayName: 'RbaService Config'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\Hcl.iAutomate.RbaService.RestBased\Program\Program'
-      Contents: '*.config'
-      TargetFolder: '$(build.sourcesdirectory)\SourceCode\Hcl.iAutomate.RbaService.RestBased\Program\Program\bin\Release'
-      OverWrite: true
-    
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: RbaService
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\Hcl.iAutomate.RbaService.RestBased\Hcl.RbaService.Component.Host\Hcl.RbaService.Component.Host\bin\Release'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\RBA\RBA\RBA'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'ReleaseService Config'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.Release.Service\HCL.iAutomate.Release.Host'
-      Contents: '*.config'
-      TargetFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.Release.Service\HCL.iAutomate.Release.Host\bin\Release'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: ReleaseService
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.Release.Service\HCL.iAutomate.Release.Host\bin\Release'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\ReleaseService\ReleaseService\ReleaseService'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Listner Service Config'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\iAutomateListner\HCL.iAutomate.Listner.Service.Host'
-      Contents: '*.config'
-      TargetFolder: '$(build.sourcesdirectory)\SourceCode\iAutomateListner\HCL.iAutomate.Listner.Service.Host\bin\Release'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Listner Service'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\iAutomateListner\HCL.iAutomate.Listner.Service.Host\bin\Release'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\Listner\Listner\Listner'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: iKnowledge
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.iKnowledge'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\iKnowledge\iKnowledge\iKnowledge'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: IParse
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.iParse\IParse'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\IParse\IParse\IParse'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: EntityModel
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.EntityModel'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\EntityModel\EntityModel\EntityModel'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: IScript
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.iScript'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\IScript\IScript\IScript'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: IUnique
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.iUnique'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\IUnique\IUnique\IUnique'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: KnowledgeRating
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.KnowledgeRating'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\KnowledgeRating\KnowledgeRating\KnowledgeRating'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: Crawler
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.Crawler'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\Crawler\Crawler'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: false
-    displayName: Scheduler
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.Scheduler'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\Scheduler\Scheduler'
-      OverWrite: true
-    
-  - task: CopyFiles@1
-    enabled: true
-    displayName: WebApi
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/iAutomateWeb/iAutomateWeb.WebAPI/bin/Release/Publish'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\WebApi\WebApi'
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: KRS
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/iAutomateWeb//iAutomateWeb.Service/bin/Release/PublishOutput'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\KRS\KRS\KRS'
-
-  - task: CopyFiles@1
-    displayName: RbaExecutor
-    enabled: true
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.RbaExecutor/HCL.iAutomate.RbaExecutor.Api\bin\Release\net7.0'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\RbaExecutor\RbaExecutor\RbaExecutor'
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Copy Files to: $(build.artifactstagingdirectory)\Compile\iRecommend\iRecommend'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.iAutomate.iRecommend'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\iRecommend\iRecommend'
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Copy Files  ADSyncService compile folder'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.ADSyncService/HCL.iAutomate.Service.AD\bin\Release'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\ADSync\ADSync\ADSync'
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Copy Files to: $(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\AdvanceKnowledge'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/HCL.IAutomate.AdvancediKnowledge'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\AdvanceKnowledge'
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Copy Files to: email service'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.EmailService/HCL.iAutomate.DataCollector.Service.Host\bin\Release'
-      Contents: '**\*'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\EmailService\EmailService\EmailService'
-      OverWrite: true
-
-  - task: PowerShell@2
-    enabled: true
-    inputs:
-      targetType: 'inline'
-      script: |
-        $text = '$(Build.DefinitionName)_$(Build.DefinitionVersion)_$(Build.BuildId).1'
-        Write-Output $text
-        $text | Add-Content '$(build.artifactstagingdirectory)\Compile\BaseUI\BaseUI\BaseUI\BuildVersion.txt'
-        $text | Add-Content '$(build.artifactstagingdirectory)\Compile\Listner\Listner\Listner\BuildVersion.txt'
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Copy Files to resources folder'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\Resources'
-      TargetFolder: '$(build.artifactstagingdirectory)\Compile\Resources\Resources'
-      OverWrite: true
-  
-  - task: ZipDirectory@1
-    enabled: true
-    displayName: 'Zip directories'
-    inputs:
-      ItemSpec: |
-        $(build.artifactstagingdirectory)\Compile\BaseUI\BaseUI
-        $(build.artifactstagingdirectory)\Compile\Deployment\Deployment
-        $(build.artifactstagingdirectory)\Compile\GenericService\GenericService
-        $(build.artifactstagingdirectory)\Compile\DataCollection\DataCollection
-        $(build.artifactstagingdirectory)\Compile\DagService\DagService
-        $(build.artifactstagingdirectory)\Compile\RBA\RBA
-        $(build.artifactstagingdirectory)\Compile\ReleaseService\ReleaseService
-        $(build.artifactstagingdirectory)\Compile\Listner\Listner
-        $(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\AdvanceKnowledge
-        $(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\Crawler
-        $(build.artifactstagingdirectory)\Compile\iKnowledge\iKnowledge
-        $(build.artifactstagingdirectory)\Compile\IParse\IParse
-        $(build.artifactstagingdirectory)\Compile\EntityModel\EntityModel
-        $(build.artifactstagingdirectory)\Compile\IScript\IScript
-        $(build.artifactstagingdirectory)\Compile\IUnique\IUnique
-        $(build.artifactstagingdirectory)\Compile\KnowledgeRating\KnowledgeRating
-        $(build.artifactstagingdirectory)\Compile\WebApi\WebApi
-        $(build.artifactstagingdirectory)\Compile\iRecommend\iRecommend
-        $(build.artifactstagingdirectory)\Compile\ADSync\ADSync
-        $(build.artifactstagingdirectory)\Compile\EmailService\EmailService
-        $(build.artifactstagingdirectory)\Compile\Resources\Resources
-        $(build.artifactstagingdirectory)\Compile\KRS\KRS
-        $(build.artifactstagingdirectory)\Compile\RbaExecutor\RbaExecutor
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'DBScript iAutomateDB'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\Database\iAutomateDB'
-      Contents: '**/*.*'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files/DBScript/iAutomateDB'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'DBScript iCustomerDB'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/Database/iCustomerDB'
-      Contents: '**/*.*'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files/DBScript/Tool'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'DBScript AspState'
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode/Database/ASPState'
-      Contents: '**/*.*'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files/DBScript/ASPState'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: BaseUI
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\BaseUI\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\BaseUI'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: RBA
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\RBA\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\RBA'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: RBA
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
-      Contents: '*.bat'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\RBA'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: DataCollection
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\DataCollection\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\DataCollection'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: DataCollection
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
-      Contents: '*.bat'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\DataCollection'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: DagService
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\DagService\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\DagService'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: iKnowledge
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\iKnowledge\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\iKnowledge'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: IParse
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\IParse\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\IParse'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: IParse
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.iParse'
-      Contents: '*.bat'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\IParse'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: EntityModel
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\EntityModel\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\EntityModel'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: IScript
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\IScript\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\IScript'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: IUnique
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\IUnique\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\IUnique'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: KnowledgeRating
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\KnowledgeRating\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\KnowledgeRating'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Email Service'
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\EmailService\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\EmailService'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: iRecommend
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\Resources\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Resources'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: GenericService
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\GenericService\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\GenericService'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: GenericService
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
-      Contents: '*.bat'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\GenericService'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: ReleaseService
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\ReleaseService\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\ReleaseService'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: ReleaseService
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
-      Contents: '*.bat'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\ReleaseService'
-      OverWrite: true
-  
-  - powershell: 'xcopy D:\PsExec64.exe  $(build.artifactstagingdirectory)\installer\Files\PSTools /k/o /x'
-    displayName: 'Copy PsExec64.exe'
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: Listner
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\Listner\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\Listner'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: Listner
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
-      Contents: '*.bat'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\Listner'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Copy Files to: $(build.artifactstagingdirectory)\installer\Files\iRecommend'
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\iRecommend'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\iRecommend'
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Copy Files to: $(build.artifactstagingdirectory)\installer\Files\AdvanceKnowledge'
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\AdvanceKnowledge'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\AdvanceKnowledge'
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Copy Files to: $(build.artifactstagingdirectory)\installer\Files\WebApi'
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\WebApi'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\WebApi'
-      OverWrite: true
-  
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Copy Files to: $(build.artifactstagingdirectory)\installer\Files\KRS'
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\KRS'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\KRS'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: 'Copy Files to: $(build.artifactstagingdirectory)\installer\Files\RbaExecutor'
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\RbaExecutor'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\RbaExecutor'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: Deployment
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\Deployment\'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\Deployment'
-      OverWrite: true
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: ADSync
-    inputs:
-      SourceFolder: '$(build.artifactstagingdirectory)\Compile\ADSync'
-      Contents: '*.zip'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\ADSync'
-
-  - task: CopyFiles@1
-    enabled: true
-    displayName: ADSync
-    inputs:
-      SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
-      Contents: '*.bat'
-      TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\ADSync'
-      OverWrite: true
-
-  - task: PublishBuildArtifacts@1
-    enabled: true
-    displayName: 'Publish Artifact: iAutomateInstaller'
-    inputs:
-      PathtoPublish: '$(build.artifactstagingdirectory)\installer'
-      ArtifactName: iAutomateInstaller
-
-  - task: PowerShell@2
-    displayName: 'Delete files from $(build.sourcesdirectory)\SourceCode\'
-    inputs:
-      targetType: 'inline'
-      script: |
-        Remove-Item -Path "$(build.sourcesdirectory)\SourceCode\*" -Recurse -Force
-    continueOnError: true
+      - task: ZipDirectory@1
+        enabled: true
+        displayName: 'Zip directories'
+        inputs:
+          ItemSpec: |
+            $(build.artifactstagingdirectory)\Compile\BaseUI\BaseUI
+            $(build.artifactstagingdirectory)\Compile\Deployment\Deployment
+            $(build.artifactstagingdirectory)\Compile\GenericService\GenericService
+            $(build.artifactstagingdirectory)\Compile\DataCollection\DataCollection
+            $(build.artifactstagingdirectory)\Compile\DagService\DagService
+            $(build.artifactstagingdirectory)\Compile\RBA\RBA
+            $(build.artifactstagingdirectory)\Compile\ReleaseService\ReleaseService
+            $(build.artifactstagingdirectory)\Compile\Listner\Listner
+            $(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\AdvanceKnowledge
+            $(build.artifactstagingdirectory)\Compile\AdvanceKnowledge\Crawler
+            $(build.artifactstagingdirectory)\Compile\iKnowledge\iKnowledge
+            $(build.artifactstagingdirectory)\Compile\IParse\IParse
+            $(build.artifactstagingdirectory)\Compile\EntityModel\EntityModel
+            $(build.artifactstagingdirectory)\Compile\IScript\IScript
+            $(build.artifactstagingdirectory)\Compile\IUnique\IUnique
+            $(build.artifactstagingdirectory)\Compile\KnowledgeRating\KnowledgeRating
+            $(build.artifactstagingdirectory)\Compile\WebApi\WebApi
+            $(build.artifactstagingdirectory)\Compile\iRecommend\iRecommend
+            $(build.artifactstagingdirectory)\Compile\ADSync\ADSync
+            $(build.artifactstagingdirectory)\Compile\EmailService\EmailService
+            $(build.artifactstagingdirectory)\Compile\Resources\Resources
+            $(build.artifactstagingdirectory)\Compile\KRS\KRS
+            $(build.artifactstagingdirectory)\Compile\RbaExecutor\RbaExecutor
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'DBScript iAutomateDB'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\Database\iAutomateDB'
+          Contents: '**/*.*'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files/DBScript/iAutomateDB'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'DBScript iCustomerDB'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/Database/iCustomerDB'
+          Contents: '**/*.*'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files/DBScript/Tool'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'DBScript AspState'
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode/Database/ASPState'
+          Contents: '**/*.*'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files/DBScript/ASPState'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: BaseUI
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\BaseUI\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\BaseUI'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: RBA
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\RBA\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\RBA'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: RBA
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
+          Contents: '*.bat'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\RBA'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: DataCollection
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\DataCollection\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\DataCollection'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: DataCollection
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
+          Contents: '*.bat'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\DataCollection'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: DagService
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\DagService\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\DagService'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: iKnowledge
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\iKnowledge\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\iKnowledge'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: IParse
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\IParse\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\IParse'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: IParse
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\HCL.iAutomate.iParse'
+          Contents: '*.bat'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\IParse'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: EntityModel
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\EntityModel\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\EntityModel'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: IScript
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\IScript\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\IScript'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: IUnique
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\IUnique\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\IUnique'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: KnowledgeRating
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\KnowledgeRating\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\KnowledgeRating'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Email Service'
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\EmailService\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\EmailService'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: iRecommend
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\Resources\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Resources'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: GenericService
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\GenericService\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\GenericService'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: GenericService
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
+          Contents: '*.bat'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\GenericService'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: ReleaseService
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\ReleaseService\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\ReleaseService'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: ReleaseService
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
+          Contents: '*.bat'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\ReleaseService'
+          OverWrite: true
+      
+      - powershell: 'xcopy D:\PsExec64.exe  $(build.artifactstagingdirectory)\installer\Files\PSTools /k/o /x'
+        displayName: 'Copy PsExec64.exe'
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: Listner
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\Listner\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\Listner'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: Listner
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
+          Contents: '*.bat'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\Listner'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Copy Files to: $(build.artifactstagingdirectory)\installer\Files\iRecommend'
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\iRecommend'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\iRecommend'
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Copy Files to: $(build.artifactstagingdirectory)\installer\Files\AdvanceKnowledge'
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\AdvanceKnowledge'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\AdvanceKnowledge'
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Copy Files to: $(build.artifactstagingdirectory)\installer\Files\WebApi'
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\WebApi'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\WebApi'
+          OverWrite: true
+      
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Copy Files to: $(build.artifactstagingdirectory)\installer\Files\KRS'
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\KRS'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\KRS'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: 'Copy Files to: $(build.artifactstagingdirectory)\installer\Files\RbaExecutor'
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\RbaExecutor'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\RbaExecutor'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: Deployment
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\Deployment\'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\Deployment'
+          OverWrite: true
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: ADSync
+        inputs:
+          SourceFolder: '$(build.artifactstagingdirectory)\Compile\ADSync'
+          Contents: '*.zip'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\ADSync'
+
+      - task: CopyFiles@1
+        enabled: true
+        displayName: ADSync
+        inputs:
+          SourceFolder: '$(build.sourcesdirectory)\SourceCode\Tools'
+          Contents: '*.bat'
+          TargetFolder: '$(build.artifactstagingdirectory)\installer\Files\ADSync'
+          OverWrite: true
+
+      - task: PublishBuildArtifacts@1
+        enabled: true
+        displayName: 'Publish Artifact: iAutomateInstaller'
+        inputs:
+          PathtoPublish: '$(build.artifactstagingdirectory)\installer'
+          ArtifactName: iAutomateInstaller
+      
+      - task: PowerShell@2
+        displayName: 'Delete files from $(build.sourcesdirectory)\SourceCode\'
+        inputs:
+          targetType: 'inline'
+          script: |
+            Remove-Item -Path "$(build.sourcesdirectory)\SourceCode\*" -Recurse -Force
+        continueOnError: true
